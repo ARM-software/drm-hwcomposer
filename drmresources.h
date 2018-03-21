@@ -59,6 +59,8 @@ class DrmResources {
   }
 
   DrmConnector *GetConnectorForDisplay(int display) const;
+  DrmConnector *GetWritebackConnectorForDisplay(int display) const;
+  DrmConnector *FindWritebackConnector(int display) const;
   DrmCrtc *GetCrtcForDisplay(int display) const;
   DrmPlane *GetPlane(uint32_t id) const;
   DrmEventListener *event_listener();
@@ -84,6 +86,7 @@ class DrmResources {
                   DrmProperty *property);
 
   int CreateDisplayPipe(DrmConnector *connector);
+  int AttachWriteback(DrmConnector *display_conn);
 
   UniqueFd fd_;
   uint32_t mode_id_ = 0;

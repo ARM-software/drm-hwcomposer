@@ -64,6 +64,14 @@ int DrmResources::Init(ResourceManager *resource_manager, char *path,
     return ret;
   }
 
+#ifdef DRM_CLIENT_CAP_WRITEBACK_CONNECTORS
+  ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_WRITEBACK_CONNECTORS, 1);
+  if (ret) {
+    ALOGI("Failed to set writeback cap %d", ret);
+    ret = 0;
+  }
+#endif
+
   drmModeResPtr res = drmModeGetResources(fd());
   if (!res) {
     ALOGE("Failed to get DrmResources resources");
@@ -169,7 +177,7 @@ int DrmResources::Init(ResourceManager *resource_manager, char *path,
       conn->set_display(0);
       displays_[0] = 0;
       found_primary = true;
-    } else {
+    } else if (conn->external()) {
       conn->set_display(display_num);
       displays_[display_num] = display_num;
       ++display_num;
@@ -230,6 +238,8 @@ int DrmResources::Init(ResourceManager *resource_manager, char *path,
   }
 
   for (auto &conn : connectors_) {
+    if (conn->writeback())
+      continue;
     ret = CreateDisplayPipe(conn.get());
     if (ret) {
       ALOGE("Failed CreateDisplayPipe %d with %d", conn->id(), ret);
@@ -245,7 +255,15 @@ bool DrmResources::HandlesDisplay(int display) const {
 
 DrmConnector *DrmResources::GetConnectorForDisplay(int display) const {
   for (auto &conn : connectors_) {
-    if (conn->display() == display)
+    if (conn->display() == display && !conn->writeback())
+      return conn.get();
+  }
+  return NULL;
+}
+
+DrmConnector *DrmResources::GetWritebackConnectorForDisplay(int display) const {
+  for (auto &conn : connectors_) {
+    if (conn->display() == display && conn->writeback())
       return conn.get();
   }
   return NULL;
@@ -280,6 +298,7 @@ int DrmResources::TryEncoderForDisplay(int display, DrmEncoder *enc) {
   DrmCrtc *crtc = enc->crtc();
   if (crtc && crtc->can_bind(display)) {
     crtc->set_display(display);
+    enc->set_display(display);
     return 0;
   }
 
@@ -306,6 +325,7 @@ int DrmResources::CreateDisplayPipe(DrmConnector *connector) {
   if (connector->encoder()) {
     int ret = TryEncoderForDisplay(display, connector->encoder());
     if (!ret) {
+      AttachWriteback(connector);
       return 0;
     } else if (ret != -EAGAIN) {
       ALOGE("Could not set mode %d/%d", display, ret);
@@ -317,6 +337,7 @@ int DrmResources::CreateDisplayPipe(DrmConnector *connector) {
     int ret = TryEncoderForDisplay(display, enc);
     if (!ret) {
       connector->set_encoder(enc);
+      AttachWriteback(connector);
       return 0;
     } else if (ret != -EAGAIN) {
       ALOGE("Could not set mode %d/%d", display, ret);
@@ -326,6 +347,43 @@ int DrmResources::CreateDisplayPipe(DrmConnector *connector) {
   ALOGE("Could not find a suitable encoder/crtc for display %d",
         connector->display());
   return -ENODEV;
+}
+
+/*
+ * Attach writeback connector to the CRTC linked to the display_conn
+ *
+ */
+int DrmResources::AttachWriteback(DrmConnector *display_conn) {
+  int ret = -EINVAL;
+  if (display_conn->writeback())
+    return -EINVAL;
+  DrmEncoder *display_enc = display_conn->encoder();
+  if (!display_enc)
+    return -EINVAL;
+  DrmCrtc *display_crtc = display_enc->crtc();
+  if (!display_crtc)
+    return -EINVAL;
+  if (GetWritebackConnectorForDisplay(display_crtc->display()) != NULL)
+    return -EINVAL;
+  for (auto &writeback_conn : connectors_) {
+    if (writeback_conn->display() >= 0 || !writeback_conn->writeback())
+      continue;
+    for (DrmEncoder *writeback_enc : writeback_conn->possible_encoders()) {
+      for (DrmCrtc *possible_crtc : writeback_enc->possible_crtcs()) {
+        if (possible_crtc != display_crtc)
+          continue;
+        // Use just encoders which had not been bound already
+        if (writeback_enc->can_bind(display_crtc->display())) {
+          writeback_enc->set_crtc(display_crtc);
+          writeback_conn->set_encoder(writeback_enc);
+          writeback_conn->set_display(display_crtc->display());
+          writeback_conn->UpdateModes();
+          return 0;
+        }
+      }
+    }
+  }
+  return ret;
 }
 
 int DrmResources::CreatePropertyBlob(void *data, size_t length,
