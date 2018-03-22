@@ -39,6 +39,14 @@ DrmCrtc *DrmEncoder::crtc() const {
   return crtc_;
 }
 
+bool DrmEncoder::can_clone(DrmEncoder *encoder) {
+  return possible_clones_.find(encoder) != possible_clones_.end();
+}
+
+void DrmEncoder::add_possible_clone(DrmEncoder *possible_clone) {
+  possible_clones_[possible_clone] = true;
+}
+
 void DrmEncoder::set_crtc(DrmCrtc *crtc) {
   crtc_ = crtc;
   set_display(crtc->display());

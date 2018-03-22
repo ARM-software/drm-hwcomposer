@@ -97,6 +97,7 @@ int DrmResources::Init(ResourceManager *resource_manager, char *path,
     crtcs_.emplace_back(std::move(crtc));
   }
 
+  std::vector<int> possible_clones;
   for (int i = 0; !ret && i < res->count_encoders; ++i) {
     drmModeEncoderPtr e = drmModeGetEncoder(fd(), res->encoders[i]);
     if (!e) {
@@ -117,10 +118,16 @@ int DrmResources::Init(ResourceManager *resource_manager, char *path,
 
     std::unique_ptr<DrmEncoder> enc(
         new DrmEncoder(e, current_crtc, possible_crtcs));
-
+    possible_clones.push_back(e->possible_clones);
     drmModeFreeEncoder(e);
 
     encoders_.emplace_back(std::move(enc));
+  }
+
+  for (uint32_t i = 0; i < encoders_.size(); i++) {
+    for (uint32_t j = 0; j < encoders_.size(); j++)
+      if (possible_clones[i] & (1 << j))
+        encoders_[i]->add_possible_clone(encoders_[j].get());
   }
 
   for (int i = 0; !ret && i < res->count_connectors; ++i) {

@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <vector>
+#include <map>
 #include <xf86drmMode.h>
 
 namespace android {
@@ -43,6 +44,8 @@ class DrmEncoder {
   const std::vector<DrmCrtc *> &possible_crtcs() const {
     return possible_crtcs_;
   }
+  bool can_clone(DrmEncoder *encoder);
+  void add_possible_clone(DrmEncoder *possible_clone);
 
  private:
   uint32_t id_;
@@ -50,6 +53,7 @@ class DrmEncoder {
   int display_;
 
   std::vector<DrmCrtc *> possible_crtcs_;
+  std::map<DrmEncoder *, bool> possible_clones_;
 };
 }
 
