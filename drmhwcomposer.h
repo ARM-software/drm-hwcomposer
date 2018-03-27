@@ -150,6 +150,7 @@ struct DrmHwcLayer {
 
   int InitFromHwcLayer(hwc_layer_1_t *sf_layer, Importer *importer,
                        const gralloc_module_t *gralloc);
+  int PopulateFromDrmHwcLayer(DrmHwcLayer *layer);
   int ImportBuffer(Importer *importer, const gralloc_module_t *gralloc);
 
   void SetTransform(int32_t sf_transform);

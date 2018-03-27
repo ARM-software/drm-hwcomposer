@@ -149,6 +149,17 @@ int DrmHwcLayer::InitFromHwcLayer(hwc_layer_1_t *sf_layer, Importer *importer,
   return ImportBuffer(importer, gralloc);
 }
 
+int DrmHwcLayer::PopulateFromDrmHwcLayer(DrmHwcLayer *src_layer) {
+  blending = src_layer->blending;
+  sf_handle = src_layer->sf_handle;
+  acquire_fence = dup(src_layer->acquire_fence.get());
+  display_frame = src_layer->display_frame;
+  alpha = src_layer->alpha;
+  source_crop = src_layer->source_crop;
+  transform = src_layer->transform;
+  return 0;
+}
+
 int DrmHwcLayer::ImportBuffer(Importer *importer,
                               const gralloc_module_t *gralloc) {
   int ret = buffer.ImportBuffer(sf_handle, importer);
