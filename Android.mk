@@ -52,6 +52,7 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SRC_FILES := \
 	autolock.cpp \
+	resourcemanager.cpp \
 	drmresources.cpp \
 	drmconnector.cpp \
 	drmcrtc.cpp \
