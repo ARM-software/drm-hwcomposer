@@ -66,12 +66,12 @@ int Worker::WaitForSignalOrExitLocked(int64_t max_nanoseconds) {
     ret = -ETIMEDOUT;
   }
 
+  // release leaves mutex locked when going out of scope
+  lk.release();
+
   // exit takes precedence on timeout
   if (should_exit())
     ret = -EINTR;
-
-  // release leaves mutex locked when going out of scope
-  lk.release();
 
   return ret;
 }
