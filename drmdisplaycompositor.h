@@ -115,7 +115,8 @@ class DrmDisplayCompositor {
   static const int kAcquireWaitTimeoutMs = 100;
 
   int PrepareFramebuffer(DrmFramebuffer &fb,
-                         DrmDisplayComposition *display_comp);
+                         DrmDisplayComposition *display_comp,
+                         uint32_t width = 0, uint32_t height = 0);
   int ApplySquash(DrmDisplayComposition *display_comp);
   int ApplyPreComposite(DrmDisplayComposition *display_comp);
   int PrepareFrame(DrmDisplayComposition *display_comp);

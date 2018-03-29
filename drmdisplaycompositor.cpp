@@ -268,14 +268,15 @@ DrmDisplayCompositor::GetActiveModeResolution() {
 }
 
 int DrmDisplayCompositor::PrepareFramebuffer(
-    DrmFramebuffer &fb, DrmDisplayComposition *display_comp) {
+    DrmFramebuffer &fb, DrmDisplayComposition *display_comp, uint32_t width,
+    uint32_t height) {
   int ret = fb.WaitReleased(-1);
   if (ret) {
     ALOGE("Failed to wait for framebuffer release %d", ret);
     return ret;
   }
-  uint32_t width, height;
-  std::tie(width, height, ret) = GetActiveModeResolution();
+  if (width == 0 || height == 0)
+    std::tie(width, height, ret) = GetActiveModeResolution();
   if (ret) {
     ALOGE(
         "Failed to allocate framebuffer because the display resolution could "
