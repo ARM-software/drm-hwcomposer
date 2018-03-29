@@ -221,6 +221,7 @@ int DrmDisplayCompositor::Init(DrmResources *drm, int display) {
     ALOGE("Failed to initialize drm compositor lock %d\n", ret);
     return ret;
   }
+  planner_ = Planner::CreateInstance(drm);
 
   initialized_ = true;
   return 0;
@@ -229,6 +230,28 @@ int DrmDisplayCompositor::Init(DrmResources *drm, int display) {
 std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
     const {
   return std::unique_ptr<DrmDisplayComposition>(new DrmDisplayComposition());
+}
+
+std::unique_ptr<DrmDisplayComposition>
+DrmDisplayCompositor::CreateInitializedComposition() const {
+  DrmCrtc *crtc = drm_->GetCrtcForDisplay(display_);
+  if (!crtc) {
+    ALOGE("Failed to find crtc for display = %d", display_);
+    return std::unique_ptr<DrmDisplayComposition>();
+  }
+  std::unique_ptr<DrmDisplayComposition> comp = CreateComposition();
+  std::shared_ptr<Importer> importer =
+      drm_->resource_manager()->GetImporter(display_);
+  if (!importer) {
+    ALOGE("Failed to find resources for display = %d", display_);
+    return std::unique_ptr<DrmDisplayComposition>();
+  }
+  int ret = comp->Init(drm_, crtc, importer.get(), planner_.get(), 0);
+  if (ret) {
+    ALOGE("Failed to init composition for display = %d", display_);
+    return std::unique_ptr<DrmDisplayComposition>();
+  }
+  return comp;
 }
 
 std::tuple<uint32_t, uint32_t, int>

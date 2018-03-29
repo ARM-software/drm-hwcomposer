@@ -87,6 +87,7 @@ class DrmDisplayCompositor {
   int Init(DrmResources *drm, int display);
 
   std::unique_ptr<DrmDisplayComposition> CreateComposition() const;
+  std::unique_ptr<DrmDisplayComposition> CreateInitializedComposition() const;
   int ApplyComposition(std::unique_ptr<DrmDisplayComposition> composition);
   int Composite();
   int SquashAll();
@@ -155,6 +156,7 @@ class DrmDisplayCompositor {
   // we need to reset them on every Dump() call.
   mutable uint64_t dump_frames_composited_;
   mutable uint64_t dump_last_timestamp_ns_;
+  std::unique_ptr<Planner> planner_;
 };
 }
 
