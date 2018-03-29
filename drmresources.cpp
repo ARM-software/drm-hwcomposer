@@ -42,10 +42,9 @@ DrmResources::~DrmResources() {
   event_listener_.Exit();
 }
 
-int DrmResources::Init() {
-  char path[PROPERTY_VALUE_MAX];
-  property_get("hwc.drm.device", path, "/dev/dri/card0");
-
+int DrmResources::Init(ResourceManager *resource_manager, char *path,
+                       int start_display_index) {
+  resource_manager_ = resource_manager;
   /* TODO: Use drmOpenControl here instead */
   fd_.Set(open(path, O_RDWR));
   if (fd() < 0) {
@@ -76,8 +75,8 @@ int DrmResources::Init() {
   max_resolution_ =
       std::pair<uint32_t, uint32_t>(res->max_width, res->max_height);
 
-  bool found_primary = false;
-  int display_num = 1;
+  bool found_primary = start_display_index != 0;
+  int display_num = found_primary ? start_display_index : 1;
 
   for (int i = 0; !ret && i < res->count_crtcs; ++i) {
     drmModeCrtcPtr c = drmModeGetCrtc(fd(), res->crtcs[i]);
@@ -161,9 +160,11 @@ int DrmResources::Init() {
   for (auto &conn : connectors_) {
     if (conn->internal() && !found_primary) {
       conn->set_display(0);
+      displays_[0] = 0;
       found_primary = true;
     } else {
       conn->set_display(display_num);
+      displays_[display_num] = display_num;
       ++display_num;
     }
   }
@@ -171,7 +172,9 @@ int DrmResources::Init() {
   // Then look for primary amongst external connectors
   for (auto &conn : connectors_) {
     if (conn->external() && !found_primary) {
+      displays_.erase(conn->display());
       conn->set_display(0);
+      displays_[0] = 0;
       found_primary = true;
     }
   }
@@ -226,7 +229,11 @@ int DrmResources::Init() {
       return ret;
     }
   }
-  return 0;
+  return displays_.size() ? displays_.rbegin()->first : -EINVAL;
+}
+
+bool DrmResources::HandlesDisplay(int display) const {
+  return displays_.find(display) != displays_.end();
 }
 
 DrmConnector *DrmResources::GetConnectorForDisplay(int display) const {
@@ -347,6 +354,10 @@ int DrmResources::DestroyPropertyBlob(uint32_t blob_id) {
 
 DrmEventListener *DrmResources::event_listener() {
   return &event_listener_;
+}
+
+ResourceManager *DrmResources::resource_manager() {
+  return resource_manager_;
 }
 
 int DrmResources::GetProperty(uint32_t obj_id, uint32_t obj_type,

@@ -58,40 +58,32 @@ DrmHwcTwo::DrmHwcTwo() {
 }
 
 HWC2::Error DrmHwcTwo::Init() {
-  int ret = drm_.Init();
+  int ret = resource_manager_.Init();
   if (ret) {
-    ALOGE("Can't initialize drm object %d", ret);
+    ALOGE("Can't initialize the resource manager %d", ret);
     return HWC2::Error::NoResources;
   }
 
-  importer_.reset(Importer::CreateInstance(&drm_));
-  if (!importer_) {
-    ALOGE("Failed to create importer instance");
+  DrmResources *drm = resource_manager_.GetDrmResources(HWC_DISPLAY_PRIMARY);
+  std::shared_ptr<Importer> importer =
+      resource_manager_.GetImporter(HWC_DISPLAY_PRIMARY);
+  if (!drm || !importer) {
+    ALOGE("Failed to get a valid drmresource and importer");
     return HWC2::Error::NoResources;
   }
+  displays_.emplace(
+      std::piecewise_construct, std::forward_as_tuple(HWC_DISPLAY_PRIMARY),
+      std::forward_as_tuple(drm, importer, resource_manager_.GetGralloc(),
+                            HWC_DISPLAY_PRIMARY, HWC2::DisplayType::Physical));
 
-  ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                      (const hw_module_t **)&gralloc_);
-  if (ret) {
-    ALOGE("Failed to open gralloc module %d", ret);
-    return HWC2::Error::NoResources;
-  }
-
-  displays_.emplace(std::piecewise_construct,
-                    std::forward_as_tuple(HWC_DISPLAY_PRIMARY),
-                    std::forward_as_tuple(&drm_, importer_, gralloc_,
-                                          HWC_DISPLAY_PRIMARY,
-                                          HWC2::DisplayType::Physical));
-
-  DrmCrtc *crtc = drm_.GetCrtcForDisplay(static_cast<int>(HWC_DISPLAY_PRIMARY));
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(static_cast<int>(HWC_DISPLAY_PRIMARY));
   if (!crtc) {
     ALOGE("Failed to get crtc for display %d",
           static_cast<int>(HWC_DISPLAY_PRIMARY));
     return HWC2::Error::BadDisplay;
   }
-
   std::vector<DrmPlane *> display_planes;
-  for (auto &plane : drm_.planes()) {
+  for (auto &plane : drm->planes()) {
     if (plane->GetCrtcSupported(*crtc))
       display_planes.push_back(plane.get());
   }

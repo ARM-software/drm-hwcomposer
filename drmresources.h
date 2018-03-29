@@ -17,22 +17,26 @@
 #ifndef ANDROID_DRM_H_
 #define ANDROID_DRM_H_
 
+#include <stdint.h>
 #include "drmconnector.h"
 #include "drmcrtc.h"
 #include "drmencoder.h"
 #include "drmeventlistener.h"
 #include "drmplane.h"
-
-#include <stdint.h>
+#include "platform.h"
+#include "resourcemanager.h"
 
 namespace android {
+
+class ResourceManager;
 
 class DrmResources {
  public:
   DrmResources();
   ~DrmResources();
 
-  int Init();
+  int Init(ResourceManager *resource_manager, char *path,
+           int start_display_index);
 
   int fd() const {
     return fd_.get();
@@ -58,6 +62,7 @@ class DrmResources {
   DrmCrtc *GetCrtcForDisplay(int display) const;
   DrmPlane *GetPlane(uint32_t id) const;
   DrmEventListener *event_listener();
+  ResourceManager *resource_manager();
 
   int GetPlaneProperty(const DrmPlane &plane, const char *prop_name,
                        DrmProperty *property);
@@ -71,6 +76,7 @@ class DrmResources {
 
   int CreatePropertyBlob(void *data, size_t length, uint32_t *blob_id);
   int DestroyPropertyBlob(uint32_t blob_id);
+  bool HandlesDisplay(int display) const;
 
  private:
   int TryEncoderForDisplay(int display, DrmEncoder *enc);
@@ -90,6 +96,8 @@ class DrmResources {
 
   std::pair<uint32_t, uint32_t> min_resolution_;
   std::pair<uint32_t, uint32_t> max_resolution_;
+  std::map<int, int> displays_;
+  ResourceManager *resource_manager_;
 };
 }
 
