@@ -99,6 +99,35 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
   return 0;
 }
 
+int DrmDisplayComposition::CopyLayers(DrmDisplayComposition *src) {
+  geometry_changed_ = true;
+  type_ = DRM_COMPOSITION_TYPE_FRAME;
+  std::shared_ptr<Importer> importer =
+      drm_->resource_manager()->GetImporter(crtc()->display());
+  if (!importer) {
+    ALOGE("Failed to find a valid importer");
+    return -EINVAL;
+  }
+  for (DrmHwcLayer &src_layer : src->layers()) {
+    DrmHwcLayer copy;
+    copy.PopulateFromDrmHwcLayer(&src_layer);
+    int ret = copy.ImportBuffer(importer.get(),
+                                drm_->resource_manager()->GetGralloc());
+    if (ret) {
+      ALOGE("Failed to import buffer ret = %d", ret);
+      return -EINVAL;
+    }
+    layers_.emplace_back(std::move(copy));
+  }
+  return 0;
+}
+
+void DrmDisplayComposition::CopyCompPlanes(DrmDisplayComposition *src) {
+  for (auto comp_plane : src->composition_planes()) {
+    composition_planes_.push_back(comp_plane);
+  }
+}
+
 int DrmDisplayComposition::SetDpmsMode(uint32_t dpms_mode) {
   if (!validate_composition_type(DRM_COMPOSITION_TYPE_DPMS))
     return -EINVAL;

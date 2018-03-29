@@ -68,6 +68,7 @@ class DrmCompositionPlane {
 
   DrmCompositionPlane() = default;
   DrmCompositionPlane(DrmCompositionPlane &&rhs) = default;
+  DrmCompositionPlane(const DrmCompositionPlane &rhs) = default;
   DrmCompositionPlane &operator=(DrmCompositionPlane &&other) = default;
   DrmCompositionPlane(Type type, DrmPlane *plane, DrmCrtc *crtc)
       : type_(type), plane_(plane), crtc_(crtc) {
@@ -120,6 +121,8 @@ class DrmDisplayComposition {
            Planner *planner, uint64_t frame_no);
 
   int SetLayers(DrmHwcLayer *layers, size_t num_layers, bool geometry_changed);
+  int CopyLayers(DrmDisplayComposition *src);
+  void CopyCompPlanes(DrmDisplayComposition *src);
   int AddPlaneComposition(DrmCompositionPlane plane);
   int AddPlaneDisable(DrmPlane *plane);
   int SetDpmsMode(uint32_t dpms_mode);
