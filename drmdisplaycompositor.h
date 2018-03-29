@@ -29,10 +29,15 @@
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
+#include <vsyncworker.h>
 
 // One for the front, one for the back, and one for cases where we need to
 // squash a frame that the hw can't display with hw overlays.
 #define DRM_DISPLAY_BUFFERS 3
+
+// If a scene is still for this number of vblanks flatten it to reduce power
+// consumption.
+#define FLATTEN_COUNTDOWN_INIT 60
 
 namespace android {
 
@@ -92,7 +97,7 @@ class DrmDisplayCompositor {
   int Composite();
   int SquashAll();
   void Dump(std::ostringstream *out) const;
-
+  void Vsync(int display, int64_t timestamp);
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
 
   SquashState *squash_state() {
@@ -128,6 +133,9 @@ class DrmDisplayCompositor {
   void ClearDisplay();
   void ApplyFrame(std::unique_ptr<DrmDisplayComposition> composition,
                   int status, bool writeback = false);
+  int FlattenScene();
+
+  bool CountdownExpired() const;
 
   std::tuple<int, uint32_t> CreateModeBlob(const DrmMode &mode);
 
@@ -157,6 +165,8 @@ class DrmDisplayCompositor {
   // we need to reset them on every Dump() call.
   mutable uint64_t dump_frames_composited_;
   mutable uint64_t dump_last_timestamp_ns_;
+  VSyncWorker vsync_worker_;
+  int64_t flatten_countdown_;
   std::unique_ptr<Planner> planner_;
 };
 }

@@ -39,6 +39,20 @@
 
 namespace android {
 
+class CompositorVsyncCallback : public VsyncCallback {
+ public:
+  CompositorVsyncCallback(DrmDisplayCompositor *compositor)
+      : compositor_(compositor) {
+  }
+
+  void Callback(int display, int64_t timestamp) {
+    compositor_->Vsync(display, timestamp);
+  }
+
+ private:
+  DrmDisplayCompositor *compositor_;
+};
+
 void SquashState::Init(DrmHwcLayer *layers, size_t num_layers) {
   generation_number_++;
   valid_history_ = 0;
@@ -183,7 +197,8 @@ DrmDisplayCompositor::DrmDisplayCompositor()
       framebuffer_index_(0),
       squash_framebuffer_index_(0),
       dump_frames_composited_(0),
-      dump_last_timestamp_ns_(0) {
+      dump_last_timestamp_ns_(0),
+      flatten_countdown_(FLATTEN_COUNTDOWN_INIT) {
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC, &ts))
     return;
@@ -193,7 +208,7 @@ DrmDisplayCompositor::DrmDisplayCompositor()
 DrmDisplayCompositor::~DrmDisplayCompositor() {
   if (!initialized_)
     return;
-
+  vsync_worker_.Exit();
   int ret = pthread_mutex_lock(&lock_);
   if (ret)
     ALOGE("Failed to acquire compositor lock %d", ret);
@@ -222,7 +237,9 @@ int DrmDisplayCompositor::Init(DrmResources *drm, int display) {
     return ret;
   }
   planner_ = Planner::CreateInstance(drm);
-
+  vsync_worker_.Init(drm_, display_);
+  auto callback = std::make_shared<CompositorVsyncCallback>(this);
+  vsync_worker_.RegisterCallback(callback);
   initialized_ = true;
   return 0;
 }
@@ -896,6 +913,10 @@ int DrmDisplayCompositor::ApplyComposition(
   return ret;
 }
 
+int DrmDisplayCompositor::FlattenScene() {
+  return -EINVAL;
+}
+
 int DrmDisplayCompositor::SquashAll() {
   AutoLock lock(&lock_, "compositor");
   int ret = lock.Lock();
@@ -1042,6 +1063,24 @@ move_layers_back:
   }
 
   return ret;
+}
+
+bool DrmDisplayCompositor::CountdownExpired() const {
+  return flatten_countdown_ <= 0;
+}
+
+void DrmDisplayCompositor::Vsync(int display, int64_t timestamp) {
+  AutoLock lock(&lock_, __FUNCTION__);
+  if (lock.Lock())
+    return;
+  flatten_countdown_--;
+  if (CountdownExpired()) {
+    lock.Unlock();
+    int ret = FlattenScene();
+    ALOGI("scene flattening triggered for display %d at timestamp %" PRIu64
+          " result = %d \n",
+          display, timestamp, ret);
+  }
 }
 
 void DrmDisplayCompositor::Dump(std::ostringstream *out) const {
