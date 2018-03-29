@@ -127,7 +127,7 @@ class DrmDisplayCompositor {
 
   void ClearDisplay();
   void ApplyFrame(std::unique_ptr<DrmDisplayComposition> composition,
-                  int status);
+                  int status, bool writeback = false);
 
   std::tuple<int, uint32_t> CreateModeBlob(const DrmMode &mode);
 

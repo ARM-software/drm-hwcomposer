@@ -791,11 +791,6 @@ std::tuple<int, uint32_t> DrmDisplayCompositor::CreateModeBlob(
 }
 
 void DrmDisplayCompositor::ClearDisplay() {
-  AutoLock lock(&lock_, "compositor");
-  int ret = lock.Lock();
-  if (ret)
-    return;
-
   if (!active_composition_)
     return;
 
@@ -808,11 +803,25 @@ void DrmDisplayCompositor::ClearDisplay() {
 }
 
 void DrmDisplayCompositor::ApplyFrame(
-    std::unique_ptr<DrmDisplayComposition> composition, int status) {
+    std::unique_ptr<DrmDisplayComposition> composition, int status,
+    bool writeback) {
+  AutoLock lock(&lock_, __FUNCTION__);
+  if (lock.Lock())
+    return;
   int ret = status;
-
-  if (!ret)
+  if (!ret) {
+    if (writeback && !CountdownExpired()) {
+      ALOGE("Abort playing back scene");
+      return;
+    }
     ret = CommitFrame(composition.get(), false);
+    if (!ret) {
+      ++dump_frames_composited_;
+      if (active_composition_)
+        active_composition_->SignalCompositionDone();
+      active_composition_.swap(composition);
+    }
+  }
 
   if (ret) {
     ALOGE("Composite failed for display %d", display_);
@@ -821,21 +830,6 @@ void DrmDisplayCompositor::ApplyFrame(
     ClearDisplay();
     return;
   }
-  ++dump_frames_composited_;
-
-  if (active_composition_)
-    active_composition_->SignalCompositionDone();
-
-  ret = pthread_mutex_lock(&lock_);
-  if (ret)
-    ALOGE("Failed to acquire lock for active_composition swap");
-
-  active_composition_.swap(composition);
-
-  if (!ret)
-    ret = pthread_mutex_unlock(&lock_);
-  if (ret)
-    ALOGE("Failed to release lock for active_composition swap");
 }
 
 int DrmDisplayCompositor::ApplyComposition(
