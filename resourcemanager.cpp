@@ -49,6 +49,30 @@ int ResourceManager::Init() {
                        (const hw_module_t **)&gralloc_);
 }
 
+DrmConnector *ResourceManager::AvailableWritebackConnector(int display) {
+  DrmResources *drm_resource = GetDrmResources(display);
+  DrmConnector *writeback_conn = NULL;
+  if (drm_resource) {
+    writeback_conn = drm_resource->AvailableWritebackConnector(display);
+    if (writeback_conn) {
+      ALOGI("Use writeback connected to display %d\n",
+            writeback_conn->display());
+      return writeback_conn;
+    }
+  }
+  for (auto &drm : drms_) {
+    if (drm.get() == drm_resource)
+      continue;
+    writeback_conn = drm->AvailableWritebackConnector(display);
+    if (writeback_conn) {
+      ALOGI("Use writeback connected to display %d\n",
+            writeback_conn->display());
+      return writeback_conn;
+    }
+  }
+  return writeback_conn;
+}
+
 DrmResources *ResourceManager::GetDrmResources(int display) {
   for (uint32_t i = 0; i < drms_.size(); i++) {
     if (drms_[i]->HandlesDisplay(display))

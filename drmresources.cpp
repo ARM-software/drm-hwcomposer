@@ -269,6 +269,31 @@ DrmConnector *DrmResources::GetWritebackConnectorForDisplay(int display) const {
   return NULL;
 }
 
+// TODO what happens when hotplugging
+DrmConnector *DrmResources::AvailableWritebackConnector(int display) const {
+  DrmConnector *writeback_conn = GetWritebackConnectorForDisplay(display);
+  DrmConnector *display_conn = GetConnectorForDisplay(display);
+  // If we have a writeback already attached to the same CRTC, just use that, if
+  // possible
+  if (display_conn && writeback_conn &&
+      writeback_conn->encoder()->can_clone(display_conn->encoder()))
+    return writeback_conn;
+
+  // Use another CRTC if available and doesn't have any connector
+  for (auto &crtc : crtcs_) {
+    if (crtc->display() == display)
+      continue;
+    display_conn = GetConnectorForDisplay(crtc->display());
+    // If we have a display connected don't use it for writeback
+    if (display_conn && display_conn->state() == DRM_MODE_CONNECTED)
+      continue;
+    writeback_conn = GetWritebackConnectorForDisplay(crtc->display());
+    if (writeback_conn)
+      return writeback_conn;
+  }
+  return NULL;
+}
+
 DrmCrtc *DrmResources::GetCrtcForDisplay(int display) const {
   for (auto &crtc : crtcs_) {
     if (crtc->display() == display)

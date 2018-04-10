@@ -18,6 +18,7 @@ class ResourceManager {
   DrmResources *GetDrmResources(int display);
   std::shared_ptr<Importer> GetImporter(int display);
   const gralloc_module_t *GetGralloc();
+  DrmConnector *AvailableWritebackConnector(int display);
 
  private:
   std::vector<std::unique_ptr<DrmResources>> drms_;
