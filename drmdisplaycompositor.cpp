@@ -36,6 +36,7 @@
 #include "drmplane.h"
 #include "drmresources.h"
 #include "glworker.h"
+static const uint32_t kWaitWritebackFence = 100;  // ms
 
 namespace android {
 
@@ -523,7 +524,9 @@ int DrmDisplayCompositor::PrepareFrame(DrmDisplayComposition *display_comp) {
 }
 
 int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
-                                      bool test_only) {
+                                      bool test_only,
+                                      DrmDisplayComposition *writeback_comp,
+                                      DrmConnector *writeback_conn) {
   ATRACE_CALL();
 
   int ret = 0;
@@ -532,6 +535,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   std::vector<DrmCompositionPlane> &comp_planes =
       display_comp->composition_planes();
   uint64_t out_fences[drm_->crtcs().size()];
+  int writeback_fence = -1;
 
   DrmConnector *connector = drm_->GetConnectorForDisplay(display_);
   if (!connector) {
@@ -550,9 +554,37 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     return -ENOMEM;
   }
 
+  if (writeback_comp != NULL) {
+    if (writeback_conn == NULL)
+      return -EINVAL;
+    if (writeback_conn->writeback_fb_id().id() == 0 ||
+        writeback_conn->writeback_out_fence().id() == 0) {
+      ALOGE("Writeback properties don't exit");
+      return -EINVAL;
+    }
+    if (writeback_comp->layers().size() != 1) {
+      ALOGE("Invalid number of layers for writeback composition");
+      return -EINVAL;
+    }
+    ret = drmModeAtomicAddProperty(
+        pset, writeback_conn->id(), writeback_conn->writeback_fb_id().id(),
+        writeback_comp->layers().back().buffer->fb_id);
+    if (ret < 0) {
+      ALOGE("Failed to add writeback_fb_id");
+      return ret;
+    }
+    ret = drmModeAtomicAddProperty(pset, writeback_conn->id(),
+                                   writeback_conn->writeback_out_fence().id(),
+                                   (uint64_t)&writeback_fence);
+    if (ret < 0) {
+      ALOGE("Failed to add writeback_out_fence");
+      return ret;
+    }
+  }
   if (crtc->out_fence_ptr_property().id() != 0) {
-    ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->out_fence_ptr_property().id(),
-                                   (uint64_t) &out_fences[crtc->pipe()]);
+    ret = drmModeAtomicAddProperty(pset, crtc->id(),
+                                   crtc->out_fence_ptr_property().id(),
+                                   (uint64_t)&out_fences[crtc->pipe()]);
     if (ret < 0) {
       ALOGE("Failed to add OUT_FENCE_PTR property to pset: %d", ret);
       drmModeAtomicFree(pset);
@@ -577,6 +609,15 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       ALOGE("Failed to add blob %d to pset", mode_.blob_id);
       drmModeAtomicFree(pset);
       return ret;
+    }
+  }
+
+  if (writeback_conn != NULL) {
+    ret = drmModeAtomicAddProperty(pset, writeback_conn->id(),
+                                   writeback_conn->crtc_id_property().id(),
+                                   crtc->id());
+    if (ret < 0) {
+      ALOGE("Failed to  attach writeback");
     }
   }
 
@@ -729,8 +770,18 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
   if (!ret) {
     uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-    if (test_only)
+    if (test_only) {
       flags |= DRM_MODE_ATOMIC_TEST_ONLY;
+    } else {
+      if (writeback_comp != NULL) {
+        if (!CountdownExpired() && active_composition_) {
+          ALOGE("Writeback composition not needed, abort commit");
+          drmModeAtomicFree(pset);
+          return -EINVAL;
+        };
+        flags |= DRM_MODE_ATOMIC_NONBLOCK;
+      }
+    }
 
     ret = drmModeAtomicCommit(drm_->fd(), pset, flags, drm_);
     if (ret) {
@@ -768,6 +819,13 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
   if (crtc->out_fence_ptr_property().id()) {
     display_comp->set_out_fence((int) out_fences[crtc->pipe()]);
+  }
+  if (writeback_fence >= 0) {
+    if (writeback_comp->layers().size() != 1) {
+      ALOGE("Invalid numbers of layer for writeback_comp");
+      return -EINVAL;
+    }
+    writeback_comp->layers()[0].acquire_fence.Set(writeback_fence);
   }
 
   return ret;
@@ -837,6 +895,8 @@ void DrmDisplayCompositor::ApplyFrame(
       if (active_composition_)
         active_composition_->SignalCompositionDone();
       active_composition_.swap(composition);
+      flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
+      vsync_worker_.VSyncControl(!writeback);
     }
   }
 
@@ -913,8 +973,141 @@ int DrmDisplayCompositor::ApplyComposition(
   return ret;
 }
 
+int DrmDisplayCompositor::WritebackComposite(DrmDisplayComposition *src,
+                                             DrmDisplayComposition *dst,
+                                             DrmConnector *writeback_conn) {
+  int ret = 0;
+  if (src == NULL || dst == NULL)
+    return -EINVAL;
+  std::vector<DrmCompositionPlane> &src_planes = src->composition_planes();
+  DrmCompositionPlane squashed_comp(DrmCompositionPlane::Type::kPrecomp, NULL,
+                                    src->crtc());
+  for (DrmCompositionPlane &comp_plane : src_planes) {
+    if (comp_plane.plane() == NULL) {
+      ALOGE("Skipping squash all because of NULL plane");
+      ret = -EINVAL;
+    }
+    if (!squashed_comp.plane() &&
+        comp_plane.plane()->type() == DRM_PLANE_TYPE_PRIMARY)
+      squashed_comp.set_plane(comp_plane.plane());
+    else
+      dst->AddPlaneDisable(comp_plane.plane());
+  }
+
+  DrmFramebuffer *writeback_fb = NULL;
+  AutoLock lock(&lock_, __FUNCTION__);
+  if ((ret = lock.Lock()))
+    return ret;
+  writeback_fb = &framebuffers_[framebuffer_index_];
+  framebuffer_index_ = (framebuffer_index_ + 1) % DRM_DISPLAY_BUFFERS;
+  ret = PrepareFramebuffer(*writeback_fb, dst, mode_.mode.h_display(),
+                           mode_.mode.v_display());
+  if (ret) {
+    ALOGE("Failed to prepare destination buffer");
+    return ret;
+  }
+  lock.Unlock();
+  ret = CommitFrame(src, true, dst, writeback_conn);
+  if (ret) {
+    ALOGE("Atomic check failed");
+    return ret;
+  }
+  if ((ret = lock.Lock()))
+    return ret;
+  if (!CountdownExpired() && active_composition_) {
+    ALOGE("Writeback composition not needed abort");
+    return -EINVAL;
+  }
+  ret = CommitFrame(src, false, dst, writeback_conn);
+  lock.Unlock();
+  if (ret || dst->layers().size() != 1) {
+    ALOGE("Failed to flatten scene using writeback");
+    return -EINVAL;
+  }
+  squashed_comp.source_layers().push_back(0);
+  ret =
+      sync_wait(dst->layers()[0].acquire_fence.Release(), kWaitWritebackFence);
+  if (ret) {
+    ALOGE("Failed to wait on writeback fence");
+    return ret;
+  }
+  ret = dst->AddPlaneComposition(std::move(squashed_comp));
+  if (ret) {
+    ALOGE("Failed to add flatten scene");
+    return ret;
+  }
+  ret = dst->FinalizeComposition();
+  if (ret) {
+    ALOGE("Failed to finalize composition");
+    return ret;
+  }
+  return 0;
+}
+
+int DrmDisplayCompositor::FlattenSynchronously(DrmConnector *writeback_conn) {
+  if (writeback_conn->display() != display_) {
+    ALOGE("Cannot flatten synchronously on different display");
+    return -EINVAL;
+  }
+  ALOGI("FlattenSynchronously using the same display");
+  int ret = 0;
+  /* Flattened composition with only one layer that is built
+   * using the writeback connector
+   */
+  std::unique_ptr<DrmDisplayComposition> writeback_comp =
+      CreateInitializedComposition();
+  /* Copy of the active_composition_, we need a copy because
+   * if we use the active composition we have to hold the lock
+   * for the entire sequence of flattening.
+   */
+  std::unique_ptr<DrmDisplayComposition> copy_comp =
+      CreateInitializedComposition();
+
+  if (!copy_comp || !writeback_comp)
+    return -EINVAL;
+  AutoLock lock(&lock_, __FUNCTION__);
+  if ((ret = lock.Lock()))
+    return ret;
+  if (CountdownExpired()) {
+    ret = copy_comp->CopyLayers(active_composition_.get());
+    if (ret)
+      return ret;
+    copy_comp->CopyCompPlanes(active_composition_.get());
+  } else {
+    return -EINVAL;
+  }
+  lock.Unlock();
+  ret =
+      WritebackComposite(copy_comp.get(), writeback_comp.get(), writeback_conn);
+  if (ret) {
+    ALOGE("Failed to prepare writebackScene");
+    return ret;
+  }
+
+  ApplyFrame(std::move(writeback_comp), 0, true);
+  return 0;
+}
+
 int DrmDisplayCompositor::FlattenScene() {
-  return -EINVAL;
+  DrmConnector *writeback_conn =
+      drm_->resource_manager()->AvailableWritebackConnector(display_);
+  if (!active_composition_ || !writeback_conn)
+    return -EINVAL;
+  std::vector<DrmCompositionPlane> &src_planes =
+      active_composition_->composition_planes();
+  size_t src_planes_with_layer = std::count_if(
+      src_planes.begin(), src_planes.end(), [](DrmCompositionPlane &p) {
+        return p.type() != DrmCompositionPlane::Type::kDisable;
+      });
+
+  if (src_planes_with_layer <= 1)
+    return -EALREADY;
+
+  if (writeback_conn->display() == display_) {
+    return FlattenSynchronously(writeback_conn);
+  }
+
+  return 0;
 }
 
 int DrmDisplayCompositor::SquashAll() {

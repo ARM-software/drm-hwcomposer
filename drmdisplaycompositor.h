@@ -125,7 +125,9 @@ class DrmDisplayCompositor {
   int ApplySquash(DrmDisplayComposition *display_comp);
   int ApplyPreComposite(DrmDisplayComposition *display_comp);
   int PrepareFrame(DrmDisplayComposition *display_comp);
-  int CommitFrame(DrmDisplayComposition *display_comp, bool test_only);
+  int CommitFrame(DrmDisplayComposition *display_comp, bool test_only,
+                  DrmDisplayComposition *writeback_comp = NULL,
+                  DrmConnector *writeback_conn = NULL);
   int SquashFrame(DrmDisplayComposition *src, DrmDisplayComposition *dst);
   int ApplyDpms(DrmDisplayComposition *display_comp);
   int DisablePlanes(DrmDisplayComposition *display_comp);
@@ -134,7 +136,10 @@ class DrmDisplayCompositor {
   void ApplyFrame(std::unique_ptr<DrmDisplayComposition> composition,
                   int status, bool writeback = false);
   int FlattenScene();
+  int FlattenSynchronously(DrmConnector *writeback_conn);
 
+  int WritebackComposite(DrmDisplayComposition *src, DrmDisplayComposition *dst,
+                         DrmConnector *writeback_conn);
   bool CountdownExpired() const;
 
   std::tuple<int, uint32_t> CreateModeBlob(const DrmMode &mode);
