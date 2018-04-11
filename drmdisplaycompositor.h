@@ -137,6 +137,11 @@ class DrmDisplayCompositor {
                   int status, bool writeback = false);
   int FlattenScene();
   int FlattenSynchronously(DrmConnector *writeback_conn);
+  int FlattenAsynchronously(DrmConnector *writeback_conn);
+  int FlattenOnDisplay(std::unique_ptr<DrmDisplayComposition> &src,
+                         std::unique_ptr<DrmDisplayComposition> &writeback,
+                         DrmConnector *writeback_conn,
+                         DrmMode &src_mode);
 
   int WritebackComposite(DrmDisplayComposition *src, DrmDisplayComposition *dst,
                          DrmConnector *writeback_conn);

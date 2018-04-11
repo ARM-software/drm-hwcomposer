@@ -973,6 +973,84 @@ int DrmDisplayCompositor::ApplyComposition(
   return ret;
 }
 
+int DrmDisplayCompositor::FlattenOnDisplay(
+    std::unique_ptr<DrmDisplayComposition> &src,
+    std::unique_ptr<DrmDisplayComposition> &writeback,
+    DrmConnector *writeback_conn, DrmMode &src_mode) {
+  int ret = 0;
+  ret = writeback_conn->UpdateModes();
+  if (ret) {
+    ALOGE("Failed to update modes %d", ret);
+    return ret;
+  }
+  for (const DrmMode &mode : writeback_conn->modes()) {
+    if (mode.h_display() == src_mode.h_display() &&
+        mode.v_display() == src_mode.v_display()) {
+      writeback->SetDisplayMode(mode);
+      mode_.mode = mode;
+      if (mode_.blob_id)
+        drm_->DestroyPropertyBlob(mode_.blob_id);
+      std::tie(ret, mode_.blob_id) = CreateModeBlob(mode_.mode);
+      if (ret) {
+        ALOGE("Failed to create mode blob for display %d", display_);
+        return ret;
+      }
+      mode_.needs_modeset = true;
+      break;
+    }
+  }
+  if (mode_.blob_id <= 0) {
+    ALOGE("Failed to find similar mode");
+    return -EINVAL;
+  }
+
+  std::vector<DrmPlane *> primary_planes;
+  std::vector<DrmPlane *> overlay_planes;
+  SquashState squash_state;
+  DrmCrtc *crtc = drm_->GetCrtcForDisplay(display_);
+  if (!crtc) {
+    ALOGE("Failed to find crtc for display %d", display_);
+    return -EINVAL;
+  }
+
+  // TODO what happens if planes could go to both CRTCs, don't think it's
+  // handled anywhere
+  for (auto &plane : drm_->planes()) {
+    if (!plane->GetCrtcSupported(*crtc))
+      continue;
+    if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
+      primary_planes.push_back(plane.get());
+    else if (plane->type() == DRM_PLANE_TYPE_OVERLAY)
+      overlay_planes.push_back(plane.get());
+  }
+  ret = src->Plan(&squash_state, &primary_planes, &overlay_planes);
+  if (ret) {
+    ALOGE("Failed to plan the composition ret = %d", ret);
+    return ret;
+  }
+  if (src->squash_regions().size() > 0) {
+    ALOGE("Abandon we don't want to fire up the GPU");
+    return -EINVAL;
+  }
+
+  // Disable the planes we're not using
+  for (auto i = primary_planes.begin(); i != primary_planes.end();) {
+    src->AddPlaneDisable(*i);
+    i = primary_planes.erase(i);
+  }
+  for (auto i = overlay_planes.begin(); i != overlay_planes.end();) {
+    src->AddPlaneDisable(*i);
+    i = overlay_planes.erase(i);
+  }
+
+  ret = WritebackComposite(src.get(), writeback.get(), writeback_conn);
+  if (ret) {
+    ALOGE("Failed to writeback ret=%d", ret);
+    return ret;
+  }
+  return 0;
+}
+
 int DrmDisplayCompositor::WritebackComposite(DrmDisplayComposition *src,
                                              DrmDisplayComposition *dst,
                                              DrmConnector *writeback_conn) {
@@ -1088,6 +1166,97 @@ int DrmDisplayCompositor::FlattenSynchronously(DrmConnector *writeback_conn) {
   return 0;
 }
 
+int DrmDisplayCompositor::FlattenAsynchronously(
+    DrmConnector *writeback_conn) {
+  if (writeback_conn->display() == display_) {
+    ALOGE("Cannot flatten asynchronously on the same display");
+    return -EINVAL;
+  }
+  ALOGI("FlattenAsynchronously on a different display");
+  int ret = 0;
+  ResourceManager *resource_manager = drm_->resource_manager();
+  DrmResources *drm_resource =
+      resource_manager->GetDrmResources(writeback_conn->display());
+  if (!drm_resource) {
+    ALOGE("Failed to find resources for display = %d",
+          writeback_conn->display());
+    return -EINVAL;
+  }
+  DrmDisplayCompositor drmdisplaycompositor;
+  ret = drmdisplaycompositor.Init(drm_resource, writeback_conn->display());
+  if (ret) {
+    ALOGE("Failed to init  drmdisplaycompositor = %d", ret);
+  }
+  /* Copy of the active_composition, needed because of two things:
+   * 1) Not to hold the lock for the whole time we are accessing
+   *    active_composition
+   * 2) Will be committed on a crtc that might not be on the same
+   *    dri node, so buffers need to be imported on the right node.
+   */
+  std::unique_ptr<DrmDisplayComposition> copy_comp =
+      drmdisplaycompositor.CreateInitializedComposition();
+  /* Flattened composition with only one layer that is built
+   * using the writeback connector
+   */
+  std::unique_ptr<DrmDisplayComposition> writeback_comp =
+      drmdisplaycompositor.CreateInitializedComposition();
+  /* Copy of the writeback composition that will be committed to the display,
+   *  needed because of 2)from above
+   */
+  std::unique_ptr<DrmDisplayComposition> next_comp =
+      CreateInitializedComposition();
+
+  DrmCrtc *crtc = NULL;
+  if (!copy_comp || !next_comp || !writeback_comp)
+    return -EINVAL;
+  AutoLock lock(&lock_, __FUNCTION__);
+  if ((ret = lock.Lock()))
+    return ret;
+  if (CountdownExpired()) {
+    crtc = active_composition_->crtc();
+    ret = copy_comp->CopyLayers(active_composition_.get());
+    if (ret)
+      return ret;
+  } else {
+    return -EINVAL;
+  }
+  lock.Unlock();
+  ret = drmdisplaycompositor.FlattenOnDisplay(copy_comp, writeback_comp,
+                                                   writeback_conn, mode_.mode);
+  if (ret) {
+    ALOGE("Failed to plan ret = %d", ret);
+    return ret;
+  }
+
+  DrmCompositionPlane squashed_comp(DrmCompositionPlane::Type::kPrecomp, NULL,
+                                    crtc);
+  for (auto &plane : drm_->planes()) {
+    if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
+      squashed_comp.set_plane(plane.get());
+    else
+      next_comp->AddPlaneDisable(plane.get());
+  }
+  next_comp->layers().emplace_back();
+  DrmHwcLayer &src_layer = writeback_comp->layers().back();
+  DrmHwcLayer &next_layer = next_comp->layers().back();
+  next_layer.PopulateFromDrmHwcLayer(&src_layer);
+  ret = next_layer.buffer.ImportBuffer(
+      next_layer.sf_handle, resource_manager->GetImporter(display_).get());
+  if (ret) {
+    ALOGE("Failed to import framebuffer for display %d", ret);
+    return ret;
+  }
+  squashed_comp.source_layers().push_back(0);
+  ret = next_comp->AddPlaneComposition(std::move(squashed_comp));
+  if (ret) {
+    ALOGE("Failed to add plane composition %d", ret);
+    return ret;
+  }
+  ApplyFrame(std::move(next_comp), 0, true);
+  ALOGE("Apply frame end scope");
+  return ret;
+}
+
 int DrmDisplayCompositor::FlattenScene() {
   DrmConnector *writeback_conn =
       drm_->resource_manager()->AvailableWritebackConnector(display_);
@@ -1103,7 +1272,9 @@ int DrmDisplayCompositor::FlattenScene() {
   if (src_planes_with_layer <= 1)
     return -EALREADY;
 
-  if (writeback_conn->display() == display_) {
+  if (writeback_conn->display() != display_) {
+    return FlattenAsynchronously(writeback_conn);
+  } else {
     return FlattenSynchronously(writeback_conn);
   }
 
