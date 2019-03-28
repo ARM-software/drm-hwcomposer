@@ -146,7 +146,7 @@ int DrmConnector::UpdateModes() {
     }
   }
   modes_.swap(new_modes);
-  if ((!preferred_mode_found) && (modes_.size() != 0)) {
+  if (!preferred_mode_found && modes_.size() != 0) {
     preferred_mode_id_ = modes_[0].id();
   }
   return 0;
