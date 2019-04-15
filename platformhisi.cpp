@@ -70,7 +70,8 @@ int HisiImporter::Init() {
   return 0;
 }
 
-#ifdef MALI_GRALLOC_INTFMT_AFBC_BASIC
+#if defined(MALI_GRALLOC_INTFMT_AFBC_BASIC) && \
+    defined(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)
 uint64_t HisiImporter::ConvertGrallocFormatToDrmModifiers(uint64_t flags,
                                                           bool is_rgb) {
   uint64_t features = 0UL;
