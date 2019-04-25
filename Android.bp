@@ -110,3 +110,12 @@ filegroup {
         "platformhisi.cpp",
     ],
 }
+
+// Used by hwcomposer.drm_meson
+filegroup {
+    name: "drm_hwcomposer_platformmeson",
+    srcs: [
+        "platformdrmgeneric.cpp",
+        "platformmeson.cpp",
+    ],
+}
