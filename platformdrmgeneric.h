@@ -38,9 +38,10 @@ class DrmGenericImporter : public Importer {
   uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
   uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
 
- private:
+ protected:
   DrmDevice *drm_;
 
+ private:
   const gralloc_module_t *gralloc_;
 };
 }  // namespace android
