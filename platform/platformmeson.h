@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,25 +27,15 @@
 
 namespace android {
 
-class HisiImporter : public DrmGenericImporter {
+class MesonImporter : public DrmGenericImporter {
  public:
-  HisiImporter(DrmDevice *drm);
-  ~HisiImporter() override;
-
-  int Init();
+  using DrmGenericImporter::DrmGenericImporter;
 
   int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
-
   bool CanImportBuffer(buffer_handle_t handle) override;
 
  private:
-  uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags, bool is_rgb);
-
-  bool IsDrmFormatRgb(uint32_t drm_format);
-
-  DrmDevice *drm_;
-
-  const gralloc_module_t *gralloc_;
+  uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags);
 };
 }  // namespace android
 

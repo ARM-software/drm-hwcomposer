@@ -122,8 +122,8 @@ uint32_t DrmMode::v_scan() const {
 }
 
 float DrmMode::v_refresh() const {
-  return v_refresh_ ? v_refresh_ * 1.0f
-                    : clock_ / (float)(v_total_ * h_total_) * 1000.0f;
+  // Always recalculate refresh to report correct float rate
+  return clock_ / (float)(v_total_ * h_total_) * 1000.0f;
 }
 
 uint32_t DrmMode::flags() const {

@@ -45,28 +45,6 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
   return importer;
 }
 
-DrmMinigbmImporter::DrmMinigbmImporter(DrmDevice *drm)
-    : DrmGenericImporter(drm), drm_(drm) {
-}
-
-DrmMinigbmImporter::~DrmMinigbmImporter() {
-}
-
-int DrmMinigbmImporter::Init() {
-  int ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                          (const hw_module_t **)&gralloc_);
-  if (ret) {
-    ALOGE("Failed to open gralloc module %d", ret);
-    return ret;
-  }
-
-  if (strcasecmp(gralloc_->common.author, "Chrome OS"))
-    ALOGW("Using non-minigbm gralloc module: %s/%s\n", gralloc_->common.name,
-          gralloc_->common.author);
-
-  return 0;
-}
-
 int DrmMinigbmImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   cros_gralloc_handle *gr_handle = (cros_gralloc_handle *)handle;
   if (!gr_handle)
