@@ -399,17 +399,34 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     }
   }
 
-  auto num_modes = static_cast<uint32_t>(connector_->modes().size());
-  if (!configs) {
-    *num_configs = num_modes;
-    return HWC2::Error::None;
-  }
-
   uint32_t idx = 0;
   for (const DrmMode &mode : connector_->modes()) {
-    if (idx >= *num_configs)
+    if (configs && idx >= *num_configs)
       break;
-    configs[idx++] = mode.id();
+    // Since the upper layers only look at vactive/hactive/refresh, it doesn't
+    // differentiate interlaced from progressive modes. Depending on the order
+    // of modes we return to SF, it could end up choosing a suboptimal
+    // configuration.
+    // To workaround this, don't offer interlaced modes to SF if there is at
+    // least one non-interlaced alternative.
+    //
+    // TODO: Remove this when the Interlaced attribute is in AOSP
+    if (mode.flags() & DRM_MODE_FLAG_INTERLACE) {
+      auto m = std::find_if(connector_->modes().begin(),
+                            connector_->modes().end(),
+                            [&mode](DrmMode const &m) {
+                              return !(m.flags() & DRM_MODE_FLAG_INTERLACE) &&
+                                     m.h_display() == mode.h_display() &&
+                                     m.v_display() == mode.v_display();
+                            });
+      if (m != connector_->modes().end())
+        continue;
+    }
+    if (configs) {
+      configs[idx++] = mode.id();
+    } else {
+      idx++;
+    }
   }
   *num_configs = idx;
   return HWC2::Error::None;

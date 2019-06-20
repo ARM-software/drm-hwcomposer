@@ -60,6 +60,10 @@ int DrmGenericImporter::Init() {
     ALOGE("Failed to open gralloc module");
     return ret;
   }
+
+  ALOGI("Using %s gralloc module: %s\n", gralloc_->common.name,
+        gralloc_->common.author);
+
   return 0;
 }
 

@@ -14,34 +14,30 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PLATFORM_DRM_GENERIC_H_
-#define ANDROID_PLATFORM_DRM_GENERIC_H_
+#ifndef ANDROID_PLATFORM_HISI_H_
+#define ANDROID_PLATFORM_HISI_H_
 
 #include "drmdevice.h"
 #include "platform.h"
+#include "platformdrmgeneric.h"
+
+#include <stdatomic.h>
 
 #include <hardware/gralloc.h>
 
 namespace android {
 
-class DrmGenericImporter : public Importer {
+class HisiImporter : public DrmGenericImporter {
  public:
-  DrmGenericImporter(DrmDevice *drm);
-  ~DrmGenericImporter() override;
-
-  int Init();
+  using DrmGenericImporter::DrmGenericImporter;
 
   int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
-  int ReleaseBuffer(hwc_drm_bo_t *bo) override;
   bool CanImportBuffer(buffer_handle_t handle) override;
 
-  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
-  uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
-
  private:
-  DrmDevice *drm_;
+  uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags, bool is_rgb);
 
-  const gralloc_module_t *gralloc_;
+  bool IsDrmFormatRgb(uint32_t drm_format);
 };
 }  // namespace android
 
