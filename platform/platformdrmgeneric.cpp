@@ -24,6 +24,7 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#include <cutils/properties.h>
 #include <gralloc_handle.h>
 #include <hardware/gralloc.h>
 #include <log/log.h>
@@ -47,7 +48,8 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
 }
 #endif
 
-DrmGenericImporter::DrmGenericImporter(DrmDevice *drm) : drm_(drm) {
+DrmGenericImporter::DrmGenericImporter(DrmDevice *drm)
+    : drm_(drm), exclude_non_hwfb_(false) {
 }
 
 DrmGenericImporter::~DrmGenericImporter() {
@@ -63,6 +65,10 @@ int DrmGenericImporter::Init() {
 
   ALOGI("Using %s gralloc module: %s\n", gralloc_->common.name,
         gralloc_->common.author);
+
+  char exclude_non_hwfb_prop[PROPERTY_VALUE_MAX];
+  property_get("hwc.drm.exclude_non_hwfb_imports", exclude_non_hwfb_prop, "0");
+  exclude_non_hwfb_ = static_cast<bool>(strncmp(exclude_non_hwfb_prop, "0", 1));
 
   return 0;
 }
@@ -168,6 +174,12 @@ int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
 bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
   if (handle == NULL)
     return false;
+
+  if (exclude_non_hwfb_) {
+    gralloc_handle_t *hnd = gralloc_handle(handle);
+    return hnd->usage & GRALLOC_USAGE_HW_FB;
+  }
+
   return true;
 }
 

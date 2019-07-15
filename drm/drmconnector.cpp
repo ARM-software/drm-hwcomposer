@@ -89,7 +89,8 @@ void DrmConnector::set_display(int display) {
 
 bool DrmConnector::internal() const {
   return type_ == DRM_MODE_CONNECTOR_LVDS || type_ == DRM_MODE_CONNECTOR_eDP ||
-         type_ == DRM_MODE_CONNECTOR_DSI || type_ == DRM_MODE_CONNECTOR_VIRTUAL;
+         type_ == DRM_MODE_CONNECTOR_DSI ||
+         type_ == DRM_MODE_CONNECTOR_VIRTUAL || type_ == DRM_MODE_CONNECTOR_DPI;
 }
 
 bool DrmConnector::external() const {
