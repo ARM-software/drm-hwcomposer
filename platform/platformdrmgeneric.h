@@ -43,6 +43,7 @@ class DrmGenericImporter : public Importer {
 
  private:
   const gralloc_module_t *gralloc_;
+  bool exclude_non_hwfb_;
 };
 }  // namespace android
 
