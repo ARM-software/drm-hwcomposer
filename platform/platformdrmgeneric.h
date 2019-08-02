@@ -21,6 +21,7 @@
 #include "platform.h"
 
 #include <hardware/gralloc.h>
+#include <map>
 
 #include <drm/drm_fourcc.h>
 
@@ -40,6 +41,8 @@ class DrmGenericImporter : public Importer {
   int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
   int ReleaseBuffer(hwc_drm_bo_t *bo) override;
   bool CanImportBuffer(buffer_handle_t handle) override;
+  int ImportHandle(uint32_t gem_handle);
+  int ReleaseHandle(uint32_t gem_handle);
 
   uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
   uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
@@ -50,6 +53,9 @@ class DrmGenericImporter : public Importer {
  private:
   const gralloc_module_t *gralloc_;
   bool exclude_non_hwfb_;
+
+  int CloseHandle(uint32_t gem_handle);
+  std::map<uint32_t, int> gem_refcount_;
 };
 }  // namespace android
 

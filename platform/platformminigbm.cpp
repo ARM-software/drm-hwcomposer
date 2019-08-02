@@ -74,6 +74,8 @@ int DrmMinigbmImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     return ret;
   }
 
+  ImportHandle(gem_handle);
+
   return ret;
 }
 

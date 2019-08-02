@@ -143,6 +143,8 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     return ret;
   }
 
+  ImportHandle(gem_handle);
+
   return ret;
 }
 
@@ -151,17 +153,12 @@ int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
     if (drmModeRmFB(drm_->fd(), bo->fb_id))
       ALOGE("Failed to rm fb");
 
-  struct drm_gem_close gem_close;
-  memset(&gem_close, 0, sizeof(gem_close));
-
   for (int i = 0; i < HWC_DRM_BO_MAX_PLANES; i++) {
     if (!bo->gem_handles[i])
       continue;
 
-    gem_close.handle = bo->gem_handles[i];
-    int ret = drmIoctl(drm_->fd(), DRM_IOCTL_GEM_CLOSE, &gem_close);
-    if (ret) {
-      ALOGE("Failed to close gem handle %d %d", i, ret);
+    if (ReleaseHandle(bo->gem_handles[i])) {
+      ALOGE("Failed to release gem handle %d", bo->gem_handles[i]);
     } else {
       for (int j = i + 1; j < HWC_DRM_BO_MAX_PLANES; j++)
         if (bo->gem_handles[j] == bo->gem_handles[i])
@@ -191,4 +188,32 @@ std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   return planner;
 }
 #endif
+
+int DrmGenericImporter::ImportHandle(uint32_t gem_handle) {
+  gem_refcount_[gem_handle]++;
+
+  return 0;
+}
+
+int DrmGenericImporter::ReleaseHandle(uint32_t gem_handle) {
+  if (--gem_refcount_[gem_handle])
+    return 0;
+
+  gem_refcount_.erase(gem_handle);
+
+  return CloseHandle(gem_handle);
+}
+
+int DrmGenericImporter::CloseHandle(uint32_t gem_handle) {
+  struct drm_gem_close gem_close;
+
+  memset(&gem_close, 0, sizeof(gem_close));
+
+  gem_close.handle = gem_handle;
+  int ret = drmIoctl(drm_->fd(), DRM_IOCTL_GEM_CLOSE, &gem_close);
+  if (ret)
+    ALOGE("Failed to close gem handle %d %d", gem_handle, ret);
+
+  return ret;
+}
 }

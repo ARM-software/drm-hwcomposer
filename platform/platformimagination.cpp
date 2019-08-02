@@ -69,6 +69,8 @@ int ImaginationImporter::ImportBuffer(buffer_handle_t handle,
     return ret;
   }
 
+  ImportHandle(gem_handle);
+
   return 0;
 }
 
