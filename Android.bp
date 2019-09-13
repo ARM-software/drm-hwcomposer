@@ -110,6 +110,17 @@ cc_library_shared {
     include_dirs: ["external/minigbm/cros_gralloc"],
 }
 
+cc_library_shared {
+    name: "hwcomposer.drm_armgr",
+    defaults: ["hwcomposer.drm_defaults"],
+    whole_static_libs: ["drm_hwcomposer"],
+    srcs: [
+        "platform/platformdrmgeneric.cpp",
+        "platform/platformarmgr.cpp",
+    ],
+    shared_libs: ["arm.graphics.privatebuffer@1.0", "libhidlbase"],
+}
+
 // Used by hwcomposer.drm_imagination
 filegroup {
     name: "drm_hwcomposer_platformimagination",
