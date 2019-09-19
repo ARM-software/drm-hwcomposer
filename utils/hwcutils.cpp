@@ -23,8 +23,6 @@
 #include <log/log.h>
 #include <ui/GraphicBufferMapper.h>
 
-#define UNUSED(x) (void)(x)
-
 namespace android {
 
 const hwc_drm_bo *DrmHwcBuffer::operator->() const {

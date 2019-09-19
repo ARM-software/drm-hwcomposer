@@ -26,6 +26,8 @@
 #include <map>
 #include <vector>
 
+#define UNUSED(x) (void)(x)
+
 namespace android {
 
 class DrmDevice;
