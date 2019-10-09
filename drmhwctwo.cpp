@@ -732,7 +732,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
   supported(__func__);
 
   if (mode != HAL_COLOR_MODE_NATIVE)
-    return HWC2::Error::Unsupported;
+    return HWC2::Error::BadParameter;
 
   color_mode_ = mode;
   return HWC2::Error::None;
