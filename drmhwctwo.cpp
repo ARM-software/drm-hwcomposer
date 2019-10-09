@@ -763,9 +763,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     case HWC2::PowerMode::On:
       dpms_value = DRM_MODE_DPMS_ON;
       break;
+    case HWC2::PowerMode::Doze:
+    case HWC2::PowerMode::DozeSuspend:
+      return HWC2::Error::Unsupported;
     default:
       ALOGI("Power mode %d is unsupported\n", mode);
-      return HWC2::Error::Unsupported;
+      return HWC2::Error::BadParameter;
   };
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
