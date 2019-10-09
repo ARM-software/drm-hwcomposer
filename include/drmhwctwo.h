@@ -183,8 +183,11 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error SetPowerMode(int32_t mode);
     HWC2::Error SetVsyncEnabled(int32_t enabled);
     HWC2::Error ValidateDisplay(uint32_t *num_types, uint32_t *num_requests);
-    HwcLayer &get_layer(hwc2_layer_t layer) {
-      return layers_.at(layer);
+    HwcLayer *get_layer(hwc2_layer_t layer) {
+      auto it = layers_.find(layer);
+      if (it == layers_.end())
+        return nullptr;
+      return &it->second;
     }
 
    private:
@@ -268,8 +271,11 @@ class DrmHwcTwo : public hwc2_device_t {
     if (!display)
       return static_cast<int32_t>(HWC2::Error::BadDisplay);
 
-    HwcLayer &layer = display->get_layer(layer_handle);
-    return static_cast<int32_t>((layer.*func)(std::forward<Args>(args)...));
+    HwcLayer *layer = display->get_layer(layer_handle);
+    if (!layer)
+      return static_cast<int32_t>(HWC2::Error::BadLayer);
+
+    return static_cast<int32_t>((layer->*func)(std::forward<Args>(args)...));
   }
 
   // hwc2_device_t hooks

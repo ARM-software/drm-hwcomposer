@@ -273,6 +273,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
   supported(__func__);
+  if (!get_layer(layer))
+    return HWC2::Error::BadLayer;
+
   layers_.erase(layer);
   return HWC2::Error::None;
 }
