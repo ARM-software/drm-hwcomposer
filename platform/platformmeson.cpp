@@ -51,14 +51,15 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
 uint64_t MesonImporter::ConvertGrallocFormatToDrmModifiers(uint64_t flags) {
   uint64_t features = 0UL;
 
-  if (flags & MALI_GRALLOC_INTFMT_AFBC_BASIC)
-    features |= AFBC_FORMAT_MOD_BLOCK_SIZE_16x16;
+  if (flags & MALI_GRALLOC_INTFMT_AFBC_BASIC) {
+    if (flags & MALI_GRALLOC_INTFMT_AFBC_WIDEBLK)
+      features |= AFBC_FORMAT_MOD_BLOCK_SIZE_32x8;
+    else
+      features |= AFBC_FORMAT_MOD_BLOCK_SIZE_16x16;
+  }
 
   if (flags & MALI_GRALLOC_INTFMT_AFBC_SPLITBLK)
     features |= (AFBC_FORMAT_MOD_SPLIT | AFBC_FORMAT_MOD_SPARSE);
-
-  if (flags & MALI_GRALLOC_INTFMT_AFBC_WIDEBLK)
-    features |= AFBC_FORMAT_MOD_BLOCK_SIZE_32x8;
 
   if (flags & MALI_GRALLOC_INTFMT_AFBC_TILED_HEADERS)
     features |= AFBC_FORMAT_MOD_TILED;
