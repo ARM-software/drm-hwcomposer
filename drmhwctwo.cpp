@@ -273,6 +273,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
   supported(__func__);
+  if (!get_layer(layer))
+    return HWC2::Error::BadLayer;
+
   layers_.erase(layer);
   return HWC2::Error::None;
 }
@@ -732,7 +735,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
   supported(__func__);
 
   if (mode != HAL_COLOR_MODE_NATIVE)
-    return HWC2::Error::Unsupported;
+    return HWC2::Error::BadParameter;
 
   color_mode_ = mode;
   return HWC2::Error::None;
@@ -763,9 +766,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     case HWC2::PowerMode::On:
       dpms_value = DRM_MODE_DPMS_ON;
       break;
+    case HWC2::PowerMode::Doze:
+    case HWC2::PowerMode::DozeSuspend:
+      return HWC2::Error::Unsupported;
     default:
       ALOGI("Power mode %d is unsupported\n", mode);
-      return HWC2::Error::Unsupported;
+      return HWC2::Error::BadParameter;
   };
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
