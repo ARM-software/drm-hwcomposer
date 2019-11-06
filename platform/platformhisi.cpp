@@ -121,9 +121,9 @@ int HisiImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     return ret;
   }
 
-  int32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
-  if (fmt < 0)
-    return fmt;
+  uint32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
+  if (fmt == DRM_FORMAT_INVALID)
+    return -EINVAL;
 
   is_rgb = IsDrmFormatRgb(fmt);
   modifiers[0] = ConvertGrallocFormatToDrmModifiers(hnd->internal_format,
