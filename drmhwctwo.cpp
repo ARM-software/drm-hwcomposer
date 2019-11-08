@@ -560,6 +560,12 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
   }
 }
 
+bool DrmHwcTwo::HwcDisplay::HardwareSupportsLayerType(
+    HWC2::Composition comp_type) {
+  return comp_type == HWC2::Composition::Device ||
+         comp_type == HWC2::Composition::Cursor;
+}
+
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   std::vector<DrmCompositionDisplayLayersMap> layers_map;
   layers_map.emplace_back();
@@ -803,7 +809,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   bool gpu_block = false;
   for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
     if (gpu_block || avail_planes == 0 ||
-        l.second->sf_type() != HWC2::Composition::Device ||
+        !HardwareSupportsLayerType(l.second->sf_type()) ||
         !importer_->CanImportBuffer(l.second->buffer())) {
       gpu_block = true;
       ++*num_types;

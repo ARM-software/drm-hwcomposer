@@ -193,6 +193,7 @@ class DrmHwcTwo : public hwc2_device_t {
    private:
     HWC2::Error CreateComposition(bool test);
     void AddFenceToRetireFence(int fd);
+    bool HardwareSupportsLayerType(HWC2::Composition comp_type);
 
     ResourceManager *resource_manager_;
     DrmDevice *drm_;
