@@ -203,9 +203,6 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
 
   switch (callback) {
     case HWC2::Callback::Hotplug: {
-      auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(function);
-      hotplug(data, HWC_DISPLAY_PRIMARY,
-              static_cast<int32_t>(HWC2::Connection::Connected));
       auto &drmDevices = resource_manager_.getDrmDevices();
       for (auto &device : drmDevices)
         HandleInitialHotplugState(device.get());
