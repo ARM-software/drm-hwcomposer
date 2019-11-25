@@ -124,9 +124,14 @@ std::string DrmConnector::name() const {
        "SVIDEO", "LVDS", "Component", "DIN",     "DP",    "HDMI-A",
        "HDMI-B", "TV",   "eDP",       "Virtual", "DSI"};
 
-  std::ostringstream name_buf;
-  name_buf << names[type_] << "-" << type_id_;
-  return name_buf.str();
+  if (type_ < TYPES_COUNT) {
+    std::ostringstream name_buf;
+    name_buf << names[type_] << "-" << type_id_;
+    return name_buf.str();
+  } else {
+    ALOGE("Unknown type in connector %d, could not make his name", id_);
+    return "None";
+  }
 }
 
 int DrmConnector::UpdateModes() {
