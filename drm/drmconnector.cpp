@@ -30,6 +30,8 @@
 
 namespace android {
 
+constexpr size_t TYPES_COUNT = 17;
+
 DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
                            DrmEncoder *current_encoder,
                            std::vector<DrmEncoder *> &possible_encoders)
@@ -117,11 +119,10 @@ bool DrmConnector::valid_type() const {
 }
 
 std::string DrmConnector::name() const {
-  constexpr std::array names = {"None",      "VGA",       "DVI-I",  "DVI-D",
-                                "DVI-A",     "Composite", "SVIDEO", "LVDS",
-                                "Component", "DIN",       "DP",     "HDMI-A",
-                                "HDMI-B",    "TV",        "eDP",    "Virtual",
-                                "DSI"};
+  constexpr std::array<const char *, TYPES_COUNT> names =
+      {"None",   "VGA",  "DVI-I",     "DVI-D",   "DVI-A", "Composite",
+       "SVIDEO", "LVDS", "Component", "DIN",     "DP",    "HDMI-A",
+       "HDMI-B", "TV",   "eDP",       "Virtual", "DSI"};
 
   std::ostringstream name_buf;
   name_buf << names[type_] << "-" << type_id_;
