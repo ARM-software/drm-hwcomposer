@@ -20,7 +20,6 @@
 #include "drmdevice.h"
 #include "platform.h"
 
-#include <drm/drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 

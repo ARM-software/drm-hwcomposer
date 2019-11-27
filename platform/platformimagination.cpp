@@ -1,7 +1,6 @@
 #define LOG_TAG "hwc-platform-imagination"
 
 #include "platformimagination.h"
-#include <drm/drm_fourcc.h>
 #include <log/log.h>
 #include <xf86drm.h>
 
