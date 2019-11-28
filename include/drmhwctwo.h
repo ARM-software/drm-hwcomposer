@@ -86,6 +86,10 @@ class DrmHwcTwo : public hwc2_device_t {
       return OutputFd(&release_fence_raw_);
     }
 
+    hwc_rect_t display_frame() {
+      return display_frame_;
+    }
+
     void PopulateDrmLayer(DrmHwcLayer *layer);
 
     // Layer hooks
@@ -144,6 +148,8 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);
     void ClearDisplay();
+
+    std::string Dump();
 
     // HWC Hooks
     HWC2::Error AcceptDisplayChanges();
@@ -216,6 +222,22 @@ class DrmHwcTwo : public hwc2_device_t {
     int32_t color_mode_;
 
     uint32_t frame_no_ = 0;
+    /* Statistics */
+    struct Stats {
+      Stats minus(Stats b) {
+        return {total_frames_ - b.total_frames_,
+                total_pixops_ - b.total_pixops_, gpu_pixops_ - b.gpu_pixops_,
+                failed_kms_validate_ - b.failed_kms_validate_,
+                failed_kms_present_ - b.failed_kms_present_};
+      }
+
+      uint32_t total_frames_ = 0;
+      uint64_t total_pixops_ = 0;
+      uint64_t gpu_pixops_ = 0;
+      uint32_t failed_kms_validate_ = 0;
+      uint32_t failed_kms_present_ = 0;
+    } total_stats_, prev_stats_;
+    std::string DumpDelta(DrmHwcTwo::HwcDisplay::Stats delta);
   };
 
   class DrmHotplugHandler : public DrmEventHandler {
@@ -289,7 +311,7 @@ class DrmHwcTwo : public hwc2_device_t {
   HWC2::Error CreateVirtualDisplay(uint32_t width, uint32_t height,
                                    int32_t *format, hwc2_display_t *display);
   HWC2::Error DestroyVirtualDisplay(hwc2_display_t display);
-  void Dump(uint32_t *size, char *buffer);
+  void Dump(uint32_t *outSize, char *outBuffer);
   uint32_t GetMaxVirtualDisplayCount();
   HWC2::Error RegisterCallback(int32_t descriptor, hwc2_callback_data_t data,
                                hwc2_function_pointer_t function);
@@ -300,5 +322,7 @@ class DrmHwcTwo : public hwc2_device_t {
   ResourceManager resource_manager_;
   std::map<hwc2_display_t, HwcDisplay> displays_;
   std::map<HWC2::Callback, HwcCallback> callbacks_;
+
+  std::string mDumpString;
 };
 }  // namespace android

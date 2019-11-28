@@ -128,9 +128,58 @@ HWC2::Error DrmHwcTwo::DestroyVirtualDisplay(hwc2_display_t display) {
   return unsupported(__func__, display);
 }
 
-void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
-  // TODO: Implement dump
-  unsupported(__func__, size, buffer);
+std::string DrmHwcTwo::HwcDisplay::DumpDelta(
+    DrmHwcTwo::HwcDisplay::Stats delta) {
+  if (delta.total_pixops_ == 0)
+    return "No stats yet";
+  double Ratio = 1.0 - double(delta.gpu_pixops_) / double(delta.total_pixops_);
+
+  return (std::stringstream()
+          << " Total frames count: " << delta.total_frames_ << "\n"
+          << " Failed to test commit frames: " << delta.failed_kms_validate_
+          << "\n"
+          << " Failed to commit frames: " << delta.failed_kms_present_ << "\n"
+          << ((delta.failed_kms_present_ > 0)
+                  ? " !!! Internal failure, FIX it please\n"
+                  : "")
+          << " Pixel operations (free units)"
+          << " : [TOTAL: " << delta.total_pixops_
+          << " / GPU: " << delta.gpu_pixops_ << "]\n"
+          << " Composition efficiency: " << Ratio)
+      .str();
+}
+
+std::string DrmHwcTwo::HwcDisplay::Dump() {
+  auto out = (std::stringstream()
+              << "- Display on: " << connector_->name() << "\n"
+              << "Statistics since system boot:\n"
+              << DumpDelta(total_stats_) << "\n\n"
+              << "Statistics since last dumpsys request:\n"
+              << DumpDelta(total_stats_.minus(prev_stats_)) << "\n\n")
+                 .str();
+
+  memcpy(&prev_stats_, &total_stats_, sizeof(Stats));
+  return out;
+}
+
+void DrmHwcTwo::Dump(uint32_t *outSize, char *outBuffer) {
+  supported(__func__);
+
+  if (outBuffer != nullptr) {
+    auto copiedBytes = mDumpString.copy(outBuffer, *outSize);
+    *outSize = static_cast<uint32_t>(copiedBytes);
+    return;
+  }
+
+  std::stringstream output;
+
+  output << "-- drm_hwcomposer --\n\n";
+
+  for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &dp : displays_)
+    output << dp.second.Dump();
+
+  mDumpString = output.str();
+  *outSize = static_cast<uint32_t>(mDumpString.size());
 }
 
 uint32_t DrmHwcTwo::GetMaxVirtualDisplayCount() {
@@ -657,7 +706,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *present_fence) {
   supported(__func__);
   HWC2::Error ret;
 
+  ++total_stats_.total_frames_;
+
   ret = CreateComposition(false);
+  if (ret != HWC2::Error::None)
+    ++total_stats_.failed_kms_present_;
+
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
     *present_fence = -1;
@@ -803,24 +857,36 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
 
+  uint32_t total_pixops = 0, gpu_pixops = 0;
+
   bool gpu_block = false;
   for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
+    hwc_rect_t df = l.second->display_frame();
+    uint32_t pixops = (df.right - df.left) * (df.bottom - df.top);
     if (gpu_block || avail_planes == 0 ||
         !HardwareSupportsLayerType(l.second->sf_type()) ||
         !importer_->CanImportBuffer(l.second->buffer())) {
       gpu_block = true;
+      gpu_pixops += pixops;
       ++*num_types;
     } else {
       avail_planes--;
     }
 
+    total_pixops += pixops;
     l.second->set_validated_type(gpu_block ? HWC2::Composition::Client
                                            : HWC2::Composition::Device);
   }
 
-  if (CreateComposition(true) != HWC2::Error::None)
+  if (CreateComposition(true) != HWC2::Error::None) {
+    ++total_stats_.failed_kms_validate_;
+    gpu_pixops = total_pixops;
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
       l.second.set_validated_type(HWC2::Composition::Client);
+  }
+
+  total_stats_.gpu_pixops_ += gpu_pixops;
+  total_stats_.total_pixops_ += total_pixops;
 
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
