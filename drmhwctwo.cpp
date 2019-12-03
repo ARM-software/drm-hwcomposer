@@ -547,16 +547,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
   return HWC2::Error::None;
 }
 
-void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
-  supported(__func__);
+void DrmHwcTwo::HwcDisplay::AddFenceToPresentFence(int fd) {
   if (fd < 0)
     return;
 
-  if (next_retire_fence_.get() >= 0) {
-    int old_fence = next_retire_fence_.get();
-    next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
+  if (present_fence_.get() >= 0) {
+    int old_fence = present_fence_.get();
+    present_fence_.Set(sync_merge("dc_present", old_fence, fd));
+    close(fd);
   } else {
-    next_retire_fence_.Set(dup(fd));
+    present_fence_.Set(fd);
   }
 }
 
@@ -642,8 +642,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   if (test) {
     ret = compositor_.TestComposition(composition.get());
   } else {
-    AddFenceToRetireFence(composition->take_out_fence());
     ret = compositor_.ApplyComposition(std::move(composition));
+    AddFenceToPresentFence(compositor_.TakeOutFence());
   }
   if (ret) {
     if (!test)
@@ -653,23 +653,20 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   return HWC2::Error::None;
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
+HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *present_fence) {
   supported(__func__);
   HWC2::Error ret;
 
   ret = CreateComposition(false);
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
-    *retire_fence = -1;
+    *present_fence = -1;
     return HWC2::Error::None;
   }
   if (ret != HWC2::Error::None)
     return ret;
 
-  // The retire fence returned here is for the last frame, so return it and
-  // promote the next retire fence
-  *retire_fence = retire_fence_.Release();
-  retire_fence_ = std::move(next_retire_fence_);
+  *present_fence = present_fence_.Release();
 
   ++frame_no_;
   return HWC2::Error::None;
