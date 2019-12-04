@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <xf86drmMode.h>
+#include <string>
 #include <vector>
 
 namespace android {
@@ -48,6 +49,8 @@ class DrmConnector {
   bool external() const;
   bool writeback() const;
   bool valid_type() const;
+
+  std::string name() const;
 
   int UpdateModes();
 
@@ -86,6 +89,7 @@ class DrmConnector {
   int display_;
 
   uint32_t type_;
+  uint32_t type_id_;
   drmModeConnection state_;
 
   uint32_t mm_width_;

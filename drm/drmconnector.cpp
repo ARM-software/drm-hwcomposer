@@ -22,10 +22,15 @@
 #include <errno.h>
 #include <stdint.h>
 
+#include <array>
+#include <sstream>
+
 #include <log/log.h>
 #include <xf86drmMode.h>
 
 namespace android {
+
+constexpr size_t TYPES_COUNT = 17;
 
 DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
                            DrmEncoder *current_encoder,
@@ -35,6 +40,7 @@ DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
       encoder_(current_encoder),
       display_(-1),
       type_(c->connector_type),
+      type_id_(c->connector_type_id),
       state_(c->connection),
       mm_width_(c->mmWidth),
       mm_height_(c->mmHeight),
@@ -110,6 +116,22 @@ bool DrmConnector::writeback() const {
 
 bool DrmConnector::valid_type() const {
   return internal() || external() || writeback();
+}
+
+std::string DrmConnector::name() const {
+  constexpr std::array<const char *, TYPES_COUNT> names =
+      {"None",   "VGA",  "DVI-I",     "DVI-D",   "DVI-A", "Composite",
+       "SVIDEO", "LVDS", "Component", "DIN",     "DP",    "HDMI-A",
+       "HDMI-B", "TV",   "eDP",       "Virtual", "DSI"};
+
+  if (type_ < TYPES_COUNT) {
+    std::ostringstream name_buf;
+    name_buf << names[type_] << "-" << type_id_;
+    return name_buf.str();
+  } else {
+    ALOGE("Unknown type in connector %d, could not make his name", id_);
+    return "None";
+  }
 }
 
 int DrmConnector::UpdateModes() {

@@ -20,7 +20,6 @@
 #include "drmdevice.h"
 #include "platform.h"
 
-#include <drm/drm_fourcc.h>
 #include <stdatomic.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -98,9 +97,9 @@ int MesonImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     return ret;
   }
 
-  int32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
-  if (fmt < 0)
-    return fmt;
+  uint32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
+  if (fmt == DRM_FORMAT_INVALID)
+    return -EINVAL;
 
   modifiers[0] = ConvertGrallocFormatToDrmModifiers(hnd->internal_format);
 

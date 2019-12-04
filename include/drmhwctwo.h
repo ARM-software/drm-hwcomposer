@@ -172,7 +172,7 @@ class DrmHwcTwo : public hwc2_device_t {
                                    float *min_luminance);
     HWC2::Error GetReleaseFences(uint32_t *num_elements, hwc2_layer_t *layers,
                                  int32_t *fences);
-    HWC2::Error PresentDisplay(int32_t *retire_fence);
+    HWC2::Error PresentDisplay(int32_t *present_fence);
     HWC2::Error SetActiveConfig(hwc2_config_t config);
     HWC2::Error ChosePreferredConfig();
     HWC2::Error SetClientTarget(buffer_handle_t target, int32_t acquire_fence,
@@ -192,7 +192,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
    private:
     HWC2::Error CreateComposition(bool test);
-    void AddFenceToRetireFence(int fd);
+    void AddFenceToPresentFence(int fd);
+    bool HardwareSupportsLayerType(HWC2::Composition comp_type);
 
     ResourceManager *resource_manager_;
     DrmDevice *drm_;
@@ -211,8 +212,7 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t layer_idx_ = 0;
     std::map<hwc2_layer_t, HwcLayer> layers_;
     HwcLayer client_layer_;
-    UniqueFd retire_fence_;
-    UniqueFd next_retire_fence_;
+    UniqueFd present_fence_;
     int32_t color_mode_;
 
     uint32_t frame_no_ = 0;

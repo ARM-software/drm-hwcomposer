@@ -56,6 +56,11 @@ class DrmDisplayCompositor {
   void Dump(std::ostringstream *out) const;
   void Vsync(int display, int64_t timestamp);
   void ClearDisplay();
+  int TakeOutFence() {
+    if (!active_composition_)
+      return -1;
+    return active_composition_->take_out_fence();
+  }
 
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
 
