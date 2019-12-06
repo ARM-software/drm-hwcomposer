@@ -110,19 +110,12 @@ uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
   }
 }
 
-int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int DrmGenericImporter::ConvertBoInfo(buffer_handle_t handle,
+                                      hwc_drm_bo_t *bo) {
   gralloc_handle_t *gr_handle = gralloc_handle(handle);
   if (!gr_handle)
     return -EINVAL;
 
-  uint32_t gem_handle;
-  int ret = drmPrimeFDToHandle(drm_->fd(), gr_handle->prime_fd, &gem_handle);
-  if (ret) {
-    ALOGE("failed to import prime fd %d ret=%d", gr_handle->prime_fd, ret);
-    return ret;
-  }
-
-  memset(bo, 0, sizeof(hwc_drm_bo_t));
   bo->width = gr_handle->width;
   bo->height = gr_handle->height;
   bo->hal_format = gr_handle->format;
@@ -132,18 +125,54 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->usage = gr_handle->usage;
   bo->pixel_stride = (gr_handle->stride * 8) /
                      DrmFormatToBitsPerPixel(bo->format);
+  bo->prime_fds[0] = gr_handle->prime_fd;
   bo->pitches[0] = gr_handle->stride;
-  bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
 
-  ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
-                      bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
+  return 0;
+}
+
+int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+  memset(bo, 0, sizeof(hwc_drm_bo_t));
+
+  int ret = ConvertBoInfo(handle, bo);
+  if (ret)
+    return ret;
+
+  ret = drmPrimeFDToHandle(drm_->fd(), bo->prime_fds[0], &bo->gem_handles[0]);
+  if (ret) {
+    ALOGE("failed to import prime fd %d ret=%d", bo->prime_fds[0], ret);
+    return ret;
+  }
+
+  for (int i = 1; i < HWC_DRM_BO_MAX_PLANES; i++) {
+    int fd = bo->prime_fds[i];
+    if (fd != 0) {
+      if (fd != bo->prime_fds[0]) {
+        ALOGE("Multiplanar FBs are not supported by this version of composer");
+        return -ENOTSUP;
+      }
+      bo->gem_handles[i] = bo->gem_handles[0];
+    }
+  }
+
+  if (!bo->with_modifiers)
+    ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
+                        bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id,
+                        0);
+  else
+    ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height,
+                                     bo->format, bo->gem_handles, bo->pitches,
+                                     bo->offsets, bo->modifiers, &bo->fb_id,
+                                     bo->modifiers[0] ? DRM_MODE_FB_MODIFIERS
+                                                      : 0);
+
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
     return ret;
   }
 
-  ImportHandle(gem_handle);
+  ImportHandle(bo->gem_handles[0]);
 
   return ret;
 }
@@ -170,13 +199,17 @@ int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
 }
 
 bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
-  if (handle == NULL)
+  hwc_drm_bo_t bo;
+
+  int ret = ConvertBoInfo(handle, &bo);
+  if (ret)
     return false;
 
-  if (exclude_non_hwfb_) {
-    gralloc_handle_t *hnd = gralloc_handle(handle);
-    return hnd->usage & GRALLOC_USAGE_HW_FB;
-  }
+  if (bo.prime_fds[0] == 0)
+    return false;
+
+  if (exclude_non_hwfb_ && !(bo.usage & GRALLOC_USAGE_HW_FB))
+    return false;
 
   return true;
 }
