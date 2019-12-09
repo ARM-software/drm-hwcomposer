@@ -20,7 +20,6 @@
 #include "drmdevice.h"
 #include "platform.h"
 
-#include <drm/drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
@@ -89,7 +88,7 @@ uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
       return DRM_FORMAT_YVU420;
     default:
       ALOGE("Cannot convert hal format to drm format %u", hal_format);
-      return -EINVAL;
+      return DRM_FORMAT_INVALID;
   }
 }
 
@@ -128,6 +127,8 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->height = gr_handle->height;
   bo->hal_format = gr_handle->format;
   bo->format = ConvertHalFormatToDrm(gr_handle->format);
+  if (bo->format == DRM_FORMAT_INVALID)
+    return -EINVAL;
   bo->usage = gr_handle->usage;
   bo->pixel_stride = (gr_handle->stride * 8) /
                      DrmFormatToBitsPerPixel(bo->format);
