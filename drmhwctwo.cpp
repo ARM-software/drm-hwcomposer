@@ -547,17 +547,23 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
   return HWC2::Error::None;
 }
 
-void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
-  supported(__func__);
+void DrmHwcTwo::HwcDisplay::AddFenceToPresentFence(int fd) {
   if (fd < 0)
     return;
 
-  if (next_retire_fence_.get() >= 0) {
-    int old_fence = next_retire_fence_.get();
-    next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
+  if (present_fence_.get() >= 0) {
+    int old_fence = present_fence_.get();
+    present_fence_.Set(sync_merge("dc_present", old_fence, fd));
+    close(fd);
   } else {
-    next_retire_fence_.Set(dup(fd));
+    present_fence_.Set(fd);
   }
+}
+
+bool DrmHwcTwo::HwcDisplay::HardwareSupportsLayerType(
+    HWC2::Composition comp_type) {
+  return comp_type == HWC2::Composition::Device ||
+         comp_type == HWC2::Composition::Cursor;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
@@ -573,17 +579,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   uint32_t client_z_order = UINT32_MAX;
   std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map;
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-    HWC2::Composition comp_type;
-    if (test) {
-      comp_type = l.second.sf_type();
-      if (comp_type == HWC2::Composition::Device) {
-        if (!importer_->CanImportBuffer(l.second.buffer()))
-          comp_type = HWC2::Composition::Client;
-      }
-    } else
-      comp_type = l.second.validated_type();
-
-    switch (comp_type) {
+    switch (l.second.validated_type()) {
       case HWC2::Composition::Device:
         z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
         break;
@@ -646,8 +642,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   if (test) {
     ret = compositor_.TestComposition(composition.get());
   } else {
-    AddFenceToRetireFence(composition->take_out_fence());
     ret = compositor_.ApplyComposition(std::move(composition));
+    AddFenceToPresentFence(compositor_.TakeOutFence());
   }
   if (ret) {
     if (!test)
@@ -657,23 +653,20 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   return HWC2::Error::None;
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
+HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *present_fence) {
   supported(__func__);
   HWC2::Error ret;
 
   ret = CreateComposition(false);
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
-    *retire_fence = -1;
+    *present_fence = -1;
     return HWC2::Error::None;
   }
   if (ret != HWC2::Error::None)
     return ret;
 
-  // The retire fence returned here is for the last frame, so return it and
-  // promote the next retire fence
-  *retire_fence = retire_fence_.Release();
-  retire_fence_ = std::move(next_retire_fence_);
+  *present_fence = present_fence_.Release();
 
   ++frame_no_;
   return HWC2::Error::None;
@@ -798,22 +791,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   *num_types = 0;
   *num_requests = 0;
   size_t avail_planes = primary_planes_.size() + overlay_planes_.size();
-  bool comp_failed = false;
-
-  HWC2::Error ret;
-
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    l.second.set_validated_type(HWC2::Composition::Invalid);
-
-  ret = CreateComposition(true);
-  if (ret != HWC2::Error::None)
-    comp_failed = true;
-
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *, std::greater<int>> z_map;
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-    if (l.second.sf_type() == HWC2::Composition::Device)
-      z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
-  }
 
   /*
    * If more layers then planes, save one plane
@@ -822,22 +799,29 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   if (avail_planes < layers_.size())
     avail_planes--;
 
+  std::map<uint32_t, DrmHwcTwo::HwcLayer *, std::greater<int>> z_map;
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
+    z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
+
+  bool gpu_block = false;
   for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-    if (comp_failed || !avail_planes--)
-      break;
-    if (importer_->CanImportBuffer(l.second->buffer()))
-      l.second->set_validated_type(HWC2::Composition::Device);
+    if (gpu_block || avail_planes == 0 ||
+        !HardwareSupportsLayerType(l.second->sf_type()) ||
+        !importer_->CanImportBuffer(l.second->buffer())) {
+      gpu_block = true;
+      ++*num_types;
+    } else {
+      avail_planes--;
+    }
+
+    l.second->set_validated_type(gpu_block ? HWC2::Composition::Client
+                                           : HWC2::Composition::Device);
   }
 
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-    DrmHwcTwo::HwcLayer &layer = l.second;
-    // We can only handle layers of Device type, send everything else to SF
-    if (layer.sf_type() != HWC2::Composition::Device ||
-        layer.validated_type() != HWC2::Composition::Device) {
-      layer.set_validated_type(HWC2::Composition::Client);
-      ++*num_types;
-    }
-  }
+  if (CreateComposition(true) != HWC2::Error::None)
+    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
+      l.second.set_validated_type(HWC2::Composition::Client);
+
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
 

@@ -110,6 +110,15 @@ cc_library_shared {
     include_dirs: ["external/minigbm/cros_gralloc"],
 }
 
+// Used by hwcomposer.drm_imagination
+filegroup {
+    name: "drm_hwcomposer_platformimagination",
+    srcs: [
+        "platform/platformdrmgeneric.cpp",
+        "platform/platformimagination.cpp",
+    ],
+}
+
 // Used by hwcomposer.drm_hikey and hwcomposer.drm_hikey960
 filegroup {
     name: "drm_hwcomposer_platformhisi",

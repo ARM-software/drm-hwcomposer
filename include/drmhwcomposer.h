@@ -158,10 +158,6 @@ struct DrmHwcLayer {
   }
 };
 
-struct DrmHwcDisplayContents {
-  OutputFd retire_fence;
-  std::vector<DrmHwcLayer> layers;
-};
 }  // namespace android
 
 #endif
