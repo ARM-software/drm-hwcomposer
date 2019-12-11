@@ -231,8 +231,16 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
       drm_(drm),
       importer_(importer),
       handle_(handle),
-      type_(type) {
+      type_(type),
+      color_transform_hint_(HAL_COLOR_TRANSFORM_IDENTITY) {
   supported(__func__);
+
+  // clang-format off
+  color_transform_matrix_ = {1.0, 0.0, 0.0, 0.0,
+                             0.0, 1.0, 0.0, 0.0,
+                             0.0, 0.0, 1.0, 0.0,
+                             0.0, 0.0, 0.0, 1.0};
+  // clang-format on
 }
 
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
@@ -791,8 +799,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
 HWC2::Error DrmHwcTwo::HwcDisplay::SetColorTransform(const float *matrix,
                                                      int32_t hint) {
   supported(__func__);
-  // TODO: Force client composition if we get this
-  return unsupported(__func__, matrix, hint);
+  if (hint < HAL_COLOR_TRANSFORM_IDENTITY ||
+      hint > HAL_COLOR_TRANSFORM_CORRECT_TRITANOPIA)
+    return HWC2::Error::BadParameter;
+
+  if (!matrix && hint == HAL_COLOR_TRANSFORM_ARBITRARY_MATRIX)
+    return HWC2::Error::BadParameter;
+
+  color_transform_hint_ = static_cast<android_color_transform_t>(hint);
+  if (color_transform_hint_ == HAL_COLOR_TRANSFORM_ARBITRARY_MATRIX)
+    std::copy(matrix, matrix + MATRIX_SIZE, color_transform_matrix_.begin());
+
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
@@ -865,7 +883,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     uint32_t pixops = (df.right - df.left) * (df.bottom - df.top);
     if (gpu_block || avail_planes == 0 ||
         !HardwareSupportsLayerType(l.second->sf_type()) ||
-        !importer_->CanImportBuffer(l.second->buffer())) {
+        !importer_->CanImportBuffer(l.second->buffer()) ||
+        color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY) {
       gpu_block = true;
       gpu_pixops += pixops;
       ++*num_types;

@@ -22,6 +22,7 @@
 
 #include <hardware/hwcomposer2.h>
 
+#include <array>
 #include <map>
 
 namespace android {
@@ -202,6 +203,8 @@ class DrmHwcTwo : public hwc2_device_t {
     void AddFenceToPresentFence(int fd);
     bool HardwareSupportsLayerType(HWC2::Composition comp_type);
 
+    constexpr static size_t MATRIX_SIZE = 16;
+
     ResourceManager *resource_manager_;
     DrmDevice *drm_;
     DrmDisplayCompositor compositor_;
@@ -221,6 +224,8 @@ class DrmHwcTwo : public hwc2_device_t {
     HwcLayer client_layer_;
     UniqueFd present_fence_;
     int32_t color_mode_;
+    std::array<float, MATRIX_SIZE> color_transform_matrix_;
+    android_color_transform_t color_transform_hint_;
 
     uint32_t frame_no_ = 0;
     /* Statistics */
