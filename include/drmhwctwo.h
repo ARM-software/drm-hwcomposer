@@ -202,6 +202,10 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error CreateComposition(bool test);
     void AddFenceToPresentFence(int fd);
     bool HardwareSupportsLayerType(HWC2::Composition comp_type);
+    uint32_t CalcPixOps(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
+                        size_t first_z, size_t size);
+    void MarkValidated(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
+                       size_t client_first_z, size_t client_size);
 
     constexpr static size_t MATRIX_SIZE = 16;
 
