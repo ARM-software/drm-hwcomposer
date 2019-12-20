@@ -22,6 +22,7 @@
 
 #include <hardware/hwcomposer2.h>
 
+#include <math.h>
 #include <array>
 #include <map>
 
@@ -92,6 +93,19 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
     void PopulateDrmLayer(DrmHwcLayer *layer);
+
+    bool RequireScalingOrPhasing() {
+      float src_width = source_crop_.right - source_crop_.left;
+      float src_height = source_crop_.bottom - source_crop_.top;
+
+      float dest_width = display_frame_.right - display_frame_.left;
+      float dest_height = display_frame_.bottom - display_frame_.top;
+
+      bool scaling = src_width != dest_width || src_height != dest_height;
+      bool phasing = (source_crop_.left - floor(source_crop_.left) != 0) ||
+                     (source_crop_.top - floor(source_crop_.top) != 0);
+      return scaling || phasing;
+    }
 
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);

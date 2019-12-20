@@ -903,7 +903,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
     if (!HardwareSupportsLayerType(l.second->sf_type()) ||
         !importer_->CanImportBuffer(l.second->buffer()) ||
-        color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY) {
+        color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY ||
+        (l.second->RequireScalingOrPhasing() &&
+         resource_manager_->ForcedScalingWithGpu())) {
       if (client_start < 0)
         client_start = l.first;
       client_size = (l.first - client_start) + 1;
