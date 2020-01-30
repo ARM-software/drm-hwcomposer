@@ -41,12 +41,26 @@
 
 namespace android {
 
+enum class FlatteningState {
+  kNone,
+  kNotNeeded,
+  kClientRequested,
+  kClientDone,
+  kSerial,
+  kConcurrent
+};
+
 class DrmDisplayCompositor {
  public:
   DrmDisplayCompositor();
   ~DrmDisplayCompositor();
 
   int Init(ResourceManager *resource_manager, int display);
+
+  template <typename Fn>
+  void SetRefreshCallback(Fn &&refresh_cb) {
+    refresh_display_cb_ = std::forward<Fn>(refresh_cb);
+  }
 
   std::unique_ptr<DrmDisplayComposition> CreateComposition() const;
   std::unique_ptr<DrmDisplayComposition> CreateInitializedComposition() const;
@@ -61,6 +75,9 @@ class DrmDisplayCompositor {
       return -1;
     return active_composition_->take_out_fence();
   }
+
+  FlatteningState GetFlatteningState() const;
+  bool ShouldFlattenOnClient() const;
 
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
 
@@ -90,7 +107,10 @@ class DrmDisplayCompositor {
 
   void ApplyFrame(std::unique_ptr<DrmDisplayComposition> composition,
                   int status, bool writeback = false);
+
+  bool IsFlatteningNeeded() const;
   int FlattenActiveComposition();
+  int FlattenOnClient();
   int FlattenSerial(DrmConnector *writeback_conn);
   int FlattenConcurrent(DrmConnector *writeback_conn);
   int FlattenOnDisplay(std::unique_ptr<DrmDisplayComposition> &src,
@@ -126,6 +146,10 @@ class DrmDisplayCompositor {
   int64_t flatten_countdown_;
   std::unique_ptr<Planner> planner_;
   int writeback_fence_;
+
+  FlatteningState flattening_state_;
+
+  std::function<void(int)> refresh_display_cb_;
 };
 }  // namespace android
 

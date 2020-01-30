@@ -63,7 +63,8 @@ DrmDisplayCompositor::DrmDisplayCompositor()
       dump_frames_composited_(0),
       dump_last_timestamp_ns_(0),
       flatten_countdown_(FLATTEN_COUNTDOWN_INIT),
-      writeback_fence_(-1) {
+      writeback_fence_(-1),
+      flattening_state_(FlatteningState::kNone) {
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC, &ts))
     return;
@@ -141,6 +142,15 @@ DrmDisplayCompositor::CreateInitializedComposition() const {
     return std::unique_ptr<DrmDisplayComposition>();
   }
   return comp;
+}
+
+FlatteningState DrmDisplayCompositor::GetFlatteningState() const {
+  return flattening_state_;
+}
+
+bool DrmDisplayCompositor::ShouldFlattenOnClient() const {
+  return flattening_state_ == FlatteningState::kClientRequested ||
+         flattening_state_ == FlatteningState::kClientDone;
 }
 
 std::tuple<uint32_t, uint32_t, int>
@@ -605,6 +615,11 @@ void DrmDisplayCompositor::ApplyFrame(
   active_composition_.swap(composition);
 
   flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
+  if (flattening_state_ != FlatteningState::kClientRequested) {
+    flattening_state_ = FlatteningState::kNone;
+  } else {
+    flattening_state_ = FlatteningState::kClientDone;
+  }
   vsync_worker_.VSyncControl(!writeback);
 }
 
@@ -761,6 +776,35 @@ int DrmDisplayCompositor::FlattenOnDisplay(
   return 0;
 }
 
+bool DrmDisplayCompositor::IsFlatteningNeeded() const {
+  return CountdownExpired() && active_composition_->layers().size() >= 2;
+}
+
+int DrmDisplayCompositor::FlattenOnClient() {
+  if (refresh_display_cb_) {
+    {
+      AutoLock lock(&lock_, __func__);
+      if (!IsFlatteningNeeded()) {
+        if (flattening_state_ != FlatteningState::kClientDone) {
+          ALOGV("Flattening is not needed");
+          flattening_state_ = FlatteningState::kNotNeeded;
+        }
+        return -EALREADY;
+      }
+    }
+
+    ALOGV(
+        "No writeback connector available, "
+        "falling back to client composition");
+    flattening_state_ = FlatteningState::kClientRequested;
+    refresh_display_cb_(display_);
+    return 0;
+  } else {
+    ALOGV("No writeback connector available");
+    return -EINVAL;
+  }
+}
+
 // Flatten a scene by enabling the writeback connector attached
 // to the same CRTC as the one driving the display.
 int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
@@ -776,8 +820,9 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
   int ret = lock.Lock();
   if (ret)
     return ret;
-  if (!CountdownExpired() || active_composition_->layers().size() < 2) {
+  if (!IsFlatteningNeeded()) {
     ALOGV("Flattening is not needed");
+    flattening_state_ = FlatteningState::kNotNeeded;
     return -EALREADY;
   }
 
@@ -884,8 +929,9 @@ int DrmDisplayCompositor::FlattenConcurrent(DrmConnector *writeback_conn) {
   ret = lock.Lock();
   if (ret)
     return ret;
-  if (!CountdownExpired() || active_composition_->layers().size() < 2) {
+  if (!IsFlatteningNeeded()) {
     ALOGV("Flattening is not needed");
+    flattening_state_ = FlatteningState::kNotNeeded;
     return -EALREADY;
   }
   DrmCrtc *crtc = active_composition_->crtc();
@@ -955,13 +1001,16 @@ int DrmDisplayCompositor::FlattenActiveComposition() {
   DrmConnector *writeback_conn = resource_manager_->AvailableWritebackConnector(
       display_);
   if (!active_composition_ || !writeback_conn) {
-    ALOGV("No writeback connector available");
-    return -EINVAL;
+    // Try to fallback to GPU composition on client, since it is more
+    // power-efficient than composition on device side
+    return FlattenOnClient();
   }
 
   if (writeback_conn->display() != display_) {
+    flattening_state_ = FlatteningState::kConcurrent;
     return FlattenConcurrent(writeback_conn);
   } else {
+    flattening_state_ = FlatteningState::kSerial;
     return FlattenSerial(writeback_conn);
   }
 

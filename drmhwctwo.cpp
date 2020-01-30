@@ -208,6 +208,12 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
         HandleInitialHotplugState(device.get());
       break;
     }
+    case HWC2::Callback::Refresh: {
+      for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
+           displays_)
+        d.second.RegisterRefreshCallback(data, function);
+      break;
+    }
     case HWC2::Callback::Vsync: {
       for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
            displays_)
@@ -308,6 +314,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
   auto callback = std::make_shared<DrmVsyncCallback>(data, func);
   vsync_worker_.RegisterCallback(std::move(callback));
   return HWC2::Error::None;
+}
+
+void DrmHwcTwo::HwcDisplay::RegisterRefreshCallback(
+    hwc2_callback_data_t data, hwc2_function_pointer_t func) {
+  supported(__func__);
+  auto hook = reinterpret_cast<HWC2_PFN_REFRESH>(func);
+  compositor_.SetRefreshCallback([data, hook](int display) {
+    hook(data, static_cast<hwc2_display_t>(display));
+  });
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
@@ -900,51 +915,57 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
   int client_start = -1, client_size = 0;
 
-  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-    if (!HardwareSupportsLayerType(l.second->sf_type()) ||
-        !importer_->CanImportBuffer(l.second->buffer()) ||
-        color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY ||
-        (l.second->RequireScalingOrPhasing() &&
-         resource_manager_->ForcedScalingWithGpu())) {
-      if (client_start < 0)
-        client_start = l.first;
-      client_size = (l.first - client_start) + 1;
-    }
-  }
-
-  int extra_client = (z_map.size() - client_size) - avail_planes;
-  if (extra_client > 0) {
-    int start = 0, steps;
-    if (client_size != 0) {
-      int prepend = std::min(client_start, extra_client);
-      int append = std::min(int(z_map.size() - (client_start + client_size)),
-                            extra_client);
-      start = client_start - prepend;
-      client_size += extra_client;
-      steps = 1 + std::min(std::min(append, prepend),
-                           int(z_map.size()) - (start + client_size));
-    } else {
-      client_size = extra_client;
-      steps = 1 + z_map.size() - extra_client;
-    }
-
-    gpu_pixops = INT_MAX;
-    for (int i = 0; i < steps; i++) {
-      uint32_t po = CalcPixOps(z_map, start + i, client_size);
-      if (po < gpu_pixops) {
-        gpu_pixops = po;
-        client_start = start + i;
+  if (compositor_.ShouldFlattenOnClient()) {
+    client_start = 0;
+    client_size = z_map.size();
+    MarkValidated(z_map, client_start, client_size);
+  } else {
+    for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
+      if (!HardwareSupportsLayerType(l.second->sf_type()) ||
+          !importer_->CanImportBuffer(l.second->buffer()) ||
+          color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY ||
+          (l.second->RequireScalingOrPhasing() &&
+           resource_manager_->ForcedScalingWithGpu())) {
+        if (client_start < 0)
+          client_start = l.first;
+        client_size = (l.first - client_start) + 1;
       }
     }
-  }
 
-  MarkValidated(z_map, client_start, client_size);
+    int extra_client = (z_map.size() - client_size) - avail_planes;
+    if (extra_client > 0) {
+      int start = 0, steps;
+      if (client_size != 0) {
+        int prepend = std::min(client_start, extra_client);
+        int append = std::min(int(z_map.size() - (client_start + client_size)),
+                              extra_client);
+        start = client_start - prepend;
+        client_size += extra_client;
+        steps = 1 + std::min(std::min(append, prepend),
+                             int(z_map.size()) - (start + client_size));
+      } else {
+        client_size = extra_client;
+        steps = 1 + z_map.size() - extra_client;
+      }
 
-  if (CreateComposition(true) != HWC2::Error::None) {
-    ++total_stats_.failed_kms_validate_;
-    gpu_pixops = total_pixops;
-    client_size = z_map.size();
-    MarkValidated(z_map, 0, client_size);
+      gpu_pixops = INT_MAX;
+      for (int i = 0; i < steps; i++) {
+        uint32_t po = CalcPixOps(z_map, start + i, client_size);
+        if (po < gpu_pixops) {
+          gpu_pixops = po;
+          client_start = start + i;
+        }
+      }
+    }
+
+    MarkValidated(z_map, client_start, client_size);
+
+    if (CreateComposition(true) != HWC2::Error::None) {
+      ++total_stats_.failed_kms_validate_;
+      gpu_pixops = total_pixops;
+      client_size = z_map.size();
+      MarkValidated(z_map, 0, client_size);
+    }
   }
 
   *num_types = client_size;

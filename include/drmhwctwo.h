@@ -163,6 +163,9 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);
+    void RegisterRefreshCallback(hwc2_callback_data_t data,
+                                 hwc2_function_pointer_t func);
+
     void ClearDisplay();
 
     std::string Dump();
