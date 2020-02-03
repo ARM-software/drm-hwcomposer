@@ -50,6 +50,8 @@ enum class FlatteningState {
   kConcurrent
 };
 
+std::ostream &operator<<(std::ostream &str, FlatteningState state);
+
 class DrmDisplayCompositor {
  public:
   DrmDisplayCompositor();
@@ -77,6 +79,7 @@ class DrmDisplayCompositor {
   }
 
   FlatteningState GetFlatteningState() const;
+  uint32_t GetFlattenedFramesCount() const;
   bool ShouldFlattenOnClient() const;
 
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
@@ -108,6 +111,7 @@ class DrmDisplayCompositor {
   void ApplyFrame(std::unique_ptr<DrmDisplayComposition> composition,
                   int status, bool writeback = false);
 
+  void SetFlattening(FlatteningState new_state);
   bool IsFlatteningNeeded() const;
   int FlattenActiveComposition();
   int FlattenOnClient();
@@ -148,6 +152,7 @@ class DrmDisplayCompositor {
   int writeback_fence_;
 
   FlatteningState flattening_state_;
+  uint32_t frames_flattened_;
 
   std::function<void(int)> refresh_display_cb_;
 };

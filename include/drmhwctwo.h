@@ -260,9 +260,11 @@ class DrmHwcTwo : public hwc2_device_t {
     struct Stats {
       Stats minus(Stats b) {
         return {total_frames_ - b.total_frames_,
-                total_pixops_ - b.total_pixops_, gpu_pixops_ - b.gpu_pixops_,
+                total_pixops_ - b.total_pixops_,
+                gpu_pixops_ - b.gpu_pixops_,
                 failed_kms_validate_ - b.failed_kms_validate_,
-                failed_kms_present_ - b.failed_kms_present_};
+                failed_kms_present_ - b.failed_kms_present_,
+                frames_flattened_ - b.frames_flattened_};
       }
 
       uint32_t total_frames_ = 0;
@@ -270,6 +272,7 @@ class DrmHwcTwo : public hwc2_device_t {
       uint64_t gpu_pixops_ = 0;
       uint32_t failed_kms_validate_ = 0;
       uint32_t failed_kms_present_ = 0;
+      uint32_t frames_flattened_ = 0;
     } total_stats_, prev_stats_;
     std::string DumpDelta(DrmHwcTwo::HwcDisplay::Stats delta);
   };

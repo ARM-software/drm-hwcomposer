@@ -23,6 +23,7 @@
 #include <sched.h>
 #include <stdlib.h>
 #include <time.h>
+#include <array>
 #include <sstream>
 #include <vector>
 
@@ -39,6 +40,15 @@
 static const uint32_t kWaitWritebackFence = 100;  // ms
 
 namespace android {
+
+std::ostream &operator<<(std::ostream &str, FlatteningState state) {
+  std::array<const char *, 6> flattenting_state_str = {
+      "None",   "Not needed", "SF Requested", "Squashed by GPU",
+      "Serial", "Concurrent",
+  };
+
+  return str << flattenting_state_str[static_cast<int>(state)];
+}
 
 class CompositorVsyncCallback : public VsyncCallback {
  public:
@@ -64,7 +74,8 @@ DrmDisplayCompositor::DrmDisplayCompositor()
       dump_last_timestamp_ns_(0),
       flatten_countdown_(FLATTEN_COUNTDOWN_INIT),
       writeback_fence_(-1),
-      flattening_state_(FlatteningState::kNone) {
+      flattening_state_(FlatteningState::kNone),
+      frames_flattened_(0) {
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC, &ts))
     return;
@@ -146,6 +157,10 @@ DrmDisplayCompositor::CreateInitializedComposition() const {
 
 FlatteningState DrmDisplayCompositor::GetFlatteningState() const {
   return flattening_state_;
+}
+
+uint32_t DrmDisplayCompositor::GetFlattenedFramesCount() const {
+  return frames_flattened_;
 }
 
 bool DrmDisplayCompositor::ShouldFlattenOnClient() const {
@@ -616,9 +631,9 @@ void DrmDisplayCompositor::ApplyFrame(
 
   flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
   if (flattening_state_ != FlatteningState::kClientRequested) {
-    flattening_state_ = FlatteningState::kNone;
+    SetFlattening(FlatteningState::kNone);
   } else {
-    flattening_state_ = FlatteningState::kClientDone;
+    SetFlattening(FlatteningState::kClientDone);
   }
   vsync_worker_.VSyncControl(!writeback);
 }
@@ -776,6 +791,23 @@ int DrmDisplayCompositor::FlattenOnDisplay(
   return 0;
 }
 
+void DrmDisplayCompositor::SetFlattening(FlatteningState new_state) {
+  if (flattening_state_ != new_state) {
+    switch (flattening_state_) {
+      case FlatteningState::kClientDone:
+      case FlatteningState::kConcurrent:
+      case FlatteningState::kSerial:
+        ++frames_flattened_;
+        break;
+      case FlatteningState::kClientRequested:
+      case FlatteningState::kNone:
+      case FlatteningState::kNotNeeded:
+        break;
+    }
+  }
+  flattening_state_ = new_state;
+}
+
 bool DrmDisplayCompositor::IsFlatteningNeeded() const {
   return CountdownExpired() && active_composition_->layers().size() >= 2;
 }
@@ -787,7 +819,7 @@ int DrmDisplayCompositor::FlattenOnClient() {
       if (!IsFlatteningNeeded()) {
         if (flattening_state_ != FlatteningState::kClientDone) {
           ALOGV("Flattening is not needed");
-          flattening_state_ = FlatteningState::kNotNeeded;
+          SetFlattening(FlatteningState::kNotNeeded);
         }
         return -EALREADY;
       }
@@ -796,7 +828,7 @@ int DrmDisplayCompositor::FlattenOnClient() {
     ALOGV(
         "No writeback connector available, "
         "falling back to client composition");
-    flattening_state_ = FlatteningState::kClientRequested;
+    SetFlattening(FlatteningState::kClientRequested);
     refresh_display_cb_(display_);
     return 0;
   } else {
@@ -822,7 +854,7 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
     return ret;
   if (!IsFlatteningNeeded()) {
     ALOGV("Flattening is not needed");
-    flattening_state_ = FlatteningState::kNotNeeded;
+    SetFlattening(FlatteningState::kNotNeeded);
     return -EALREADY;
   }
 
@@ -931,7 +963,7 @@ int DrmDisplayCompositor::FlattenConcurrent(DrmConnector *writeback_conn) {
     return ret;
   if (!IsFlatteningNeeded()) {
     ALOGV("Flattening is not needed");
-    flattening_state_ = FlatteningState::kNotNeeded;
+    SetFlattening(FlatteningState::kNotNeeded);
     return -EALREADY;
   }
   DrmCrtc *crtc = active_composition_->crtc();
@@ -1007,10 +1039,10 @@ int DrmDisplayCompositor::FlattenActiveComposition() {
   }
 
   if (writeback_conn->display() != display_) {
-    flattening_state_ = FlatteningState::kConcurrent;
+    SetFlattening(FlatteningState::kConcurrent);
     return FlattenConcurrent(writeback_conn);
   } else {
-    flattening_state_ = FlatteningState::kSerial;
+    SetFlattening(FlatteningState::kSerial);
     return FlattenSerial(writeback_conn);
   }
 

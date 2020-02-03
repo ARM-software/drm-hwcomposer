@@ -142,6 +142,7 @@ std::string DrmHwcTwo::HwcDisplay::DumpDelta(
           << ((delta.failed_kms_present_ > 0)
                   ? " !!! Internal failure, FIX it please\n"
                   : "")
+          << " Flattened frames: " << delta.frames_flattened_ << "\n"
           << " Pixel operations (free units)"
           << " : [TOTAL: " << delta.total_pixops_
           << " / GPU: " << delta.gpu_pixops_ << "]\n"
@@ -152,6 +153,8 @@ std::string DrmHwcTwo::HwcDisplay::DumpDelta(
 std::string DrmHwcTwo::HwcDisplay::Dump() {
   auto out = (std::stringstream()
               << "- Display on: " << connector_->name() << "\n"
+              << "  Flattening state: " << compositor_.GetFlatteningState()
+              << "\n"
               << "Statistics since system boot:\n"
               << DumpDelta(total_stats_) << "\n\n"
               << "Statistics since last dumpsys request:\n"
@@ -970,6 +973,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
   *num_types = client_size;
 
+  total_stats_.frames_flattened_ = compositor_.GetFlattenedFramesCount();
   total_stats_.gpu_pixops_ += gpu_pixops;
   total_stats_.total_pixops_ += total_pixops;
 
