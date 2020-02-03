@@ -15,7 +15,7 @@ class ImaginationImporter : public DrmGenericImporter {
  public:
   using DrmGenericImporter::DrmGenericImporter;
 
-  int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
+  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
 };
 }  // namespace android
 

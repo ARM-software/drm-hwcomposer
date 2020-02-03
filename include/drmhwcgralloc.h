@@ -29,8 +29,11 @@ typedef struct hwc_drm_bo {
   uint32_t pixel_stride;
   uint32_t pitches[HWC_DRM_BO_MAX_PLANES];
   uint32_t offsets[HWC_DRM_BO_MAX_PLANES];
+  uint32_t prime_fds[HWC_DRM_BO_MAX_PLANES];
   uint32_t gem_handles[HWC_DRM_BO_MAX_PLANES];
+  uint64_t modifiers[HWC_DRM_BO_MAX_PLANES];
   uint32_t fb_id;
+  bool with_modifiers;
   int acquire_fence_fd;
   void *priv;
 } hwc_drm_bo_t;

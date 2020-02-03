@@ -44,37 +44,23 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
   return importer;
 }
 
-int DrmMinigbmImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int DrmMinigbmImporter::ConvertBoInfo(buffer_handle_t handle,
+                                      hwc_drm_bo_t *bo) {
   cros_gralloc_handle *gr_handle = (cros_gralloc_handle *)handle;
   if (!gr_handle)
     return -EINVAL;
 
-  uint32_t gem_handle;
-  int ret = drmPrimeFDToHandle(drm_->fd(), gr_handle->fds[0], &gem_handle);
-  if (ret) {
-    ALOGE("failed to import prime fd %d ret=%d", gr_handle->fds[0], ret);
-    return ret;
-  }
-
-  memset(bo, 0, sizeof(hwc_drm_bo_t));
   bo->width = gr_handle->width;
   bo->height = gr_handle->height;
   bo->hal_format = gr_handle->droid_format;
   bo->format = gr_handle->format;
   bo->usage = gr_handle->usage;
   bo->pixel_stride = gr_handle->pixel_stride;
+  bo->prime_fds[0] = gr_handle->fds[0];
   bo->pitches[0] = gr_handle->strides[0];
   bo->offsets[0] = gr_handle->offsets[0];
-  bo->gem_handles[0] = gem_handle;
 
-  ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
-                      bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
-  if (ret) {
-    ALOGE("could not create drm fb %d", ret);
-    return ret;
-  }
-
-  return ret;
+  return 0;
 }
 
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {

@@ -75,33 +75,21 @@ uint64_t MesonImporter::ConvertGrallocFormatToDrmModifiers(
 }
 #endif
 
-int MesonImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  uint64_t modifiers[4] = {0};
-
-  memset(bo, 0, sizeof(hwc_drm_bo_t));
-
+int MesonImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
       handle);
   if (!hnd)
     return -EINVAL;
 
-  // We can't import these types of buffers.
-  // These buffers should have been filtered out with CanImportBuffer()
   if (!(hnd->usage & GRALLOC_USAGE_HW_FB))
     return -EINVAL;
-
-  uint32_t gem_handle;
-  int ret = drmPrimeFDToHandle(drm_->fd(), hnd->share_fd, &gem_handle);
-  if (ret) {
-    ALOGE("failed to import prime fd %d ret=%d", hnd->share_fd, ret);
-    return ret;
-  }
 
   uint32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
   if (fmt == DRM_FORMAT_INVALID)
     return -EINVAL;
 
-  modifiers[0] = ConvertGrallocFormatToDrmModifiers(hnd->internal_format);
+  bo->modifiers[0] = MesonImporter::ConvertGrallocFormatToDrmModifiers(
+      hnd->internal_format);
 
   bo->width = hnd->width;
   bo->height = hnd->height;
@@ -109,27 +97,13 @@ int MesonImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->format = fmt;
   bo->usage = hnd->usage;
   bo->pixel_stride = hnd->stride;
+  bo->prime_fds[0] = hnd->share_fd;
   bo->pitches[0] = hnd->byte_stride;
-  bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
 
-  ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height,
-                                   bo->format, bo->gem_handles, bo->pitches,
-                                   bo->offsets, modifiers, &bo->fb_id,
-                                   modifiers[0] ? DRM_MODE_FB_MODIFIERS : 0);
+  bo->with_modifiers = true;
 
-  if (ret) {
-    ALOGE("could not create drm fb %d", ret);
-    return ret;
-  }
-
-  return ret;
-}
-
-bool MesonImporter::CanImportBuffer(buffer_handle_t handle) {
-  private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
-      handle);
-  return hnd && (hnd->usage & GRALLOC_USAGE_HW_FB);
+  return 0;
 }
 
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
