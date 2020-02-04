@@ -92,41 +92,29 @@ bool HisiImporter::IsDrmFormatRgb(uint32_t drm_format) {
     case DRM_FORMAT_YVU420:
       return false;
     default:
-      ALOGE("Unsupported format %u assuming rgb?", drm_format);
+      ALOGV("Unsupported format %u assuming rgb?", drm_format);
       return true;
   }
 }
 
-int HisiImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int HisiImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bool is_rgb;
-  uint64_t modifiers[4] = {0};
-
-  memset(bo, 0, sizeof(hwc_drm_bo_t));
 
   private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
       handle);
   if (!hnd)
     return -EINVAL;
 
-  // We can't import these types of buffers.
-  // These buffers should have been filtered out with CanImportBuffer()
   if (!(hnd->usage & GRALLOC_USAGE_HW_FB))
     return -EINVAL;
-
-  uint32_t gem_handle;
-  int ret = drmPrimeFDToHandle(drm_->fd(), hnd->share_fd, &gem_handle);
-  if (ret) {
-    ALOGE("failed to import prime fd %d ret=%d", hnd->share_fd, ret);
-    return ret;
-  }
 
   uint32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
   if (fmt == DRM_FORMAT_INVALID)
     return -EINVAL;
 
-  is_rgb = IsDrmFormatRgb(fmt);
-  modifiers[0] = ConvertGrallocFormatToDrmModifiers(hnd->internal_format,
-                                                    is_rgb);
+  is_rgb = HisiImporter::IsDrmFormatRgb(fmt);
+  bo->modifiers[0] = HisiImporter::
+      ConvertGrallocFormatToDrmModifiers(hnd->internal_format, is_rgb);
 
   bo->width = hnd->width;
   bo->height = hnd->height;
@@ -135,7 +123,7 @@ int HisiImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->usage = hnd->usage;
   bo->pixel_stride = hnd->stride;
   bo->pitches[0] = hnd->byte_stride;
-  bo->gem_handles[0] = gem_handle;
+  bo->prime_fds[0] = hnd->share_fd;
   bo->offsets[0] = 0;
 
   switch (fmt) {
@@ -150,11 +138,11 @@ int HisiImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
       int v_size = vu_stride * (adjusted_height / 2);
 
       /* V plane*/
-      bo->gem_handles[1] = gem_handle;
+      bo->prime_fds[1] = hnd->share_fd;
       bo->pitches[1] = vu_stride;
       bo->offsets[1] = y_size;
       /* U plane */
-      bo->gem_handles[2] = gem_handle;
+      bo->prime_fds[2] = hnd->share_fd;
       bo->pitches[2] = vu_stride;
       bo->offsets[2] = y_size + v_size;
       break;
@@ -163,23 +151,9 @@ int HisiImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
       break;
   }
 
-  ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height,
-                                   bo->format, bo->gem_handles, bo->pitches,
-                                   bo->offsets, modifiers, &bo->fb_id,
-                                   modifiers[0] ? DRM_MODE_FB_MODIFIERS : 0);
+  bo->with_modifiers = true;
 
-  if (ret) {
-    ALOGE("could not create drm fb %d", ret);
-    return ret;
-  }
-
-  return ret;
-}
-
-bool HisiImporter::CanImportBuffer(buffer_handle_t handle) {
-  private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
-      handle);
-  return hnd && (hnd->usage & GRALLOC_USAGE_HW_FB);
+  return 0;
 }
 
 class PlanStageHiSi : public Planner::PlanStage {

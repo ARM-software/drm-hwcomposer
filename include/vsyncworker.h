@@ -60,7 +60,7 @@ class VSyncWorker : public Worker {
   std::shared_ptr<VsyncCallback> callback_ = NULL;
 
   int display_;
-  bool enabled_;
+  std::atomic_bool enabled_;
   int64_t last_timestamp_;
 };
 }  // namespace android

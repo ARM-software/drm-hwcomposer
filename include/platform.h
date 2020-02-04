@@ -52,6 +52,9 @@ class Importer {
 
   // Checks if importer can import the buffer.
   virtual bool CanImportBuffer(buffer_handle_t handle) = 0;
+
+  // Convert platform-dependent buffer format to drm_hwc internal format.
+  virtual int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) = 0;
 };
 
 class Planner {

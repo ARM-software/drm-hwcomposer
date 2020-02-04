@@ -31,8 +31,7 @@ class HisiImporter : public DrmGenericImporter {
  public:
   using DrmGenericImporter::DrmGenericImporter;
 
-  int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
-  bool CanImportBuffer(buffer_handle_t handle) override;
+  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
 
  private:
   uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags, bool is_rgb);
