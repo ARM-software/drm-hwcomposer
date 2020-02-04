@@ -128,9 +128,58 @@ HWC2::Error DrmHwcTwo::DestroyVirtualDisplay(hwc2_display_t display) {
   return unsupported(__func__, display);
 }
 
-void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
-  // TODO: Implement dump
-  unsupported(__func__, size, buffer);
+std::string DrmHwcTwo::HwcDisplay::DumpDelta(
+    DrmHwcTwo::HwcDisplay::Stats delta) {
+  if (delta.total_pixops_ == 0)
+    return "No stats yet";
+  double Ratio = 1.0 - double(delta.gpu_pixops_) / double(delta.total_pixops_);
+
+  return (std::stringstream()
+          << " Total frames count: " << delta.total_frames_ << "\n"
+          << " Failed to test commit frames: " << delta.failed_kms_validate_
+          << "\n"
+          << " Failed to commit frames: " << delta.failed_kms_present_ << "\n"
+          << ((delta.failed_kms_present_ > 0)
+                  ? " !!! Internal failure, FIX it please\n"
+                  : "")
+          << " Pixel operations (free units)"
+          << " : [TOTAL: " << delta.total_pixops_
+          << " / GPU: " << delta.gpu_pixops_ << "]\n"
+          << " Composition efficiency: " << Ratio)
+      .str();
+}
+
+std::string DrmHwcTwo::HwcDisplay::Dump() {
+  auto out = (std::stringstream()
+              << "- Display on: " << connector_->name() << "\n"
+              << "Statistics since system boot:\n"
+              << DumpDelta(total_stats_) << "\n\n"
+              << "Statistics since last dumpsys request:\n"
+              << DumpDelta(total_stats_.minus(prev_stats_)) << "\n\n")
+                 .str();
+
+  memcpy(&prev_stats_, &total_stats_, sizeof(Stats));
+  return out;
+}
+
+void DrmHwcTwo::Dump(uint32_t *outSize, char *outBuffer) {
+  supported(__func__);
+
+  if (outBuffer != nullptr) {
+    auto copiedBytes = mDumpString.copy(outBuffer, *outSize);
+    *outSize = static_cast<uint32_t>(copiedBytes);
+    return;
+  }
+
+  std::stringstream output;
+
+  output << "-- drm_hwcomposer --\n\n";
+
+  for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &dp : displays_)
+    output << dp.second.Dump();
+
+  mDumpString = output.str();
+  *outSize = static_cast<uint32_t>(mDumpString.size());
 }
 
 uint32_t DrmHwcTwo::GetMaxVirtualDisplayCount() {
@@ -154,9 +203,6 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
 
   switch (callback) {
     case HWC2::Callback::Hotplug: {
-      auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(function);
-      hotplug(data, HWC_DISPLAY_PRIMARY,
-              static_cast<int32_t>(HWC2::Connection::Connected));
       auto &drmDevices = resource_manager_.getDrmDevices();
       for (auto &device : drmDevices)
         HandleInitialHotplugState(device.get());
@@ -182,8 +228,16 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
       drm_(drm),
       importer_(importer),
       handle_(handle),
-      type_(type) {
+      type_(type),
+      color_transform_hint_(HAL_COLOR_TRANSFORM_IDENTITY) {
   supported(__func__);
+
+  // clang-format off
+  color_transform_matrix_ = {1.0, 0.0, 0.0, 0.0,
+                             0.0, 1.0, 0.0, 0.0,
+                             0.0, 0.0, 1.0, 0.0,
+                             0.0, 0.0, 0.0, 1.0};
+  // clang-format on
 }
 
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
@@ -657,7 +711,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *present_fence) {
   supported(__func__);
   HWC2::Error ret;
 
+  ++total_stats_.total_frames_;
+
   ret = CreateComposition(false);
+  if (ret != HWC2::Error::None)
+    ++total_stats_.failed_kms_present_;
+
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
     *present_fence = -1;
@@ -737,8 +796,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
 HWC2::Error DrmHwcTwo::HwcDisplay::SetColorTransform(const float *matrix,
                                                      int32_t hint) {
   supported(__func__);
-  // TODO: Force client composition if we get this
-  return unsupported(__func__, matrix, hint);
+  if (hint < HAL_COLOR_TRANSFORM_IDENTITY ||
+      hint > HAL_COLOR_TRANSFORM_CORRECT_TRITANOPIA)
+    return HWC2::Error::BadParameter;
+
+  if (!matrix && hint == HAL_COLOR_TRANSFORM_ARBITRARY_MATRIX)
+    return HWC2::Error::BadParameter;
+
+  color_transform_hint_ = static_cast<android_color_transform_t>(hint);
+  if (color_transform_hint_ == HAL_COLOR_TRANSFORM_ARBITRARY_MATRIX)
+    std::copy(matrix, matrix + MATRIX_SIZE, color_transform_matrix_.begin());
+
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
@@ -785,6 +854,30 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetVsyncEnabled(int32_t enabled) {
   return HWC2::Error::None;
 }
 
+uint32_t DrmHwcTwo::HwcDisplay::CalcPixOps(
+    std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map, size_t first_z,
+    size_t size) {
+  uint32_t pixops = 0;
+  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
+    if (l.first >= first_z && l.first < first_z + size) {
+      hwc_rect_t df = l.second->display_frame();
+      pixops += (df.right - df.left) * (df.bottom - df.top);
+    }
+  }
+  return pixops;
+}
+
+void DrmHwcTwo::HwcDisplay::MarkValidated(
+    std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map, size_t client_first_z,
+    size_t client_size) {
+  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
+    if (l.first >= client_first_z && l.first < client_first_z + client_size)
+      l.second->set_validated_type(HWC2::Composition::Client);
+    else
+      l.second->set_validated_type(HWC2::Composition::Device);
+  }
+}
+
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
   supported(__func__);
@@ -799,30 +892,102 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   if (avail_planes < layers_.size())
     avail_planes--;
 
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *, std::greater<int>> z_map;
+  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map;
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
 
-  bool gpu_block = false;
-  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-    if (gpu_block || avail_planes == 0 ||
-        !HardwareSupportsLayerType(l.second->sf_type()) ||
-        !importer_->CanImportBuffer(l.second->buffer())) {
-      gpu_block = true;
-      ++*num_types;
-    } else {
-      avail_planes--;
-    }
+  uint32_t total_pixops = CalcPixOps(z_map, 0, z_map.size()), gpu_pixops = 0;
 
-    l.second->set_validated_type(gpu_block ? HWC2::Composition::Client
-                                           : HWC2::Composition::Device);
+  int client_start = -1, client_size = 0;
+
+  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
+    if (!HardwareSupportsLayerType(l.second->sf_type()) ||
+        !importer_->CanImportBuffer(l.second->buffer()) ||
+        color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY) {
+      if (client_start < 0)
+        client_start = l.first;
+      client_size = (l.first - client_start) + 1;
+    }
   }
 
-  if (CreateComposition(true) != HWC2::Error::None)
-    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-      l.second.set_validated_type(HWC2::Composition::Client);
+  int extra_client = (z_map.size() - client_size) - avail_planes;
+  if (extra_client > 0) {
+    int start = 0, steps;
+    if (client_size != 0) {
+      int prepend = std::min(client_start, extra_client);
+      int append = std::min(int(z_map.size() - (client_start + client_size)),
+                            extra_client);
+      start = client_start - prepend;
+      client_size += extra_client;
+      steps = 1 + std::min(std::min(append, prepend),
+                           int(z_map.size()) - (start + client_size));
+    } else {
+      client_size = extra_client;
+      steps = 1 + z_map.size() - extra_client;
+    }
+
+    gpu_pixops = INT_MAX;
+    for (int i = 0; i < steps; i++) {
+      uint32_t po = CalcPixOps(z_map, start + i, client_size);
+      if (po < gpu_pixops) {
+        gpu_pixops = po;
+        client_start = start + i;
+      }
+    }
+  }
+
+  MarkValidated(z_map, client_start, client_size);
+
+  if (CreateComposition(true) != HWC2::Error::None) {
+    ++total_stats_.failed_kms_validate_;
+    gpu_pixops = total_pixops;
+    client_size = z_map.size();
+    MarkValidated(z_map, 0, client_size);
+  }
+
+  *num_types = client_size;
+
+  total_stats_.gpu_pixops_ += gpu_pixops;
+  total_stats_.total_pixops_ += total_pixops;
 
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
+    uint8_t *outPort, uint32_t *outDataSize, uint8_t *outData) {
+  supported(__func__);
+
+  drmModePropertyBlobPtr blob;
+  int ret;
+  uint64_t blob_id;
+
+  std::tie(ret, blob_id) = connector_->edid_property().value();
+  if (ret) {
+    ALOGE("Failed to get edid property value.");
+    return HWC2::Error::Unsupported;
+  }
+
+  blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
+
+  outData = static_cast<uint8_t *>(blob->data);
+
+  *outPort = connector_->id();
+  *outDataSize = blob->length;
+
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
+    uint32_t *outNumCapabilities, uint32_t *outCapabilities) {
+  unsupported(__func__, outCapabilities);
+
+  if (outNumCapabilities == NULL) {
+    return HWC2::Error::BadParameter;
+  }
+
+  *outNumCapabilities = 0;
+
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
@@ -855,8 +1020,10 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerColor(hwc_color_t color) {
-  // TODO: Punt to client composition here?
-  return unsupported(__func__, color);
+  // TODO: Put to client composition here?
+  supported(__func__);
+  layer_color_ = color;
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerCompositionType(int32_t type) {
@@ -1145,6 +1312,16 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
+      return ToHook<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayIdentificationData),
+                      &HwcDisplay::GetDisplayIdentificationData, uint8_t *,
+                      uint32_t *, uint8_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayCapabilities:
+      return ToHook<HWC2_PFN_GET_DISPLAY_CAPABILITIES>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayCapabilities),
+                      &HwcDisplay::GetDisplayCapabilities, uint32_t *,
+                      uint32_t *>);
 
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:
