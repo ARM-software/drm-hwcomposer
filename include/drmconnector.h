@@ -62,7 +62,6 @@ class DrmConnector {
 
   const DrmProperty &dpms_property() const;
   const DrmProperty &crtc_id_property() const;
-  const DrmProperty &edid_property() const;
   const DrmProperty &writeback_pixel_formats() const;
   const DrmProperty &writeback_fb_id() const;
   const DrmProperty &writeback_out_fence() const;
@@ -101,7 +100,6 @@ class DrmConnector {
 
   DrmProperty dpms_property_;
   DrmProperty crtc_id_property_;
-  DrmProperty edid_property_;
   DrmProperty writeback_pixel_formats_;
   DrmProperty writeback_fb_id_;
   DrmProperty writeback_out_fence_;

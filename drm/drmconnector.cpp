@@ -58,11 +58,6 @@ int DrmConnector::Init() {
     ALOGE("Could not get CRTC_ID property\n");
     return ret;
   }
-  ret = drm_->GetConnectorProperty(*this, "EDID", &edid_property_);
-  if (ret) {
-    ALOGE("Could not get EDID property\n");
-    return ret;
-  }
   if (writeback()) {
     ret = drm_->GetConnectorProperty(*this, "WRITEBACK_PIXEL_FORMATS",
                                      &writeback_pixel_formats_);
@@ -194,10 +189,6 @@ const DrmProperty &DrmConnector::dpms_property() const {
 
 const DrmProperty &DrmConnector::crtc_id_property() const {
   return crtc_id_property_;
-}
-
-const DrmProperty &DrmConnector::edid_property() const {
-  return edid_property_;
 }
 
 const DrmProperty &DrmConnector::writeback_pixel_formats() const {

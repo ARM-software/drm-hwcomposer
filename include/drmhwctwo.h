@@ -173,11 +173,6 @@ class DrmHwcTwo : public hwc2_device_t {
                                    uint32_t *num_elements, hwc2_layer_t *layers,
                                    int32_t *layer_requests);
     HWC2::Error GetDisplayType(int32_t *type);
-    HWC2::Error GetDisplayIdentificationData(uint8_t *outPort,
-                                             uint32_t *outDataSize,
-                                             uint8_t *outData);
-    HWC2::Error GetDisplayCapabilities(uint32_t *outNumCapabilities,
-                                       uint32_t *outCapabilities);
     HWC2::Error GetDozeSupport(int32_t *support);
     HWC2::Error GetHdrCapabilities(uint32_t *num_types, int32_t *types,
                                    float *max_luminance,
