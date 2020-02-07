@@ -953,6 +953,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
 
+#if PLATFORM_SDK_VERSION > 28
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
     uint8_t *outPort, uint32_t *outDataSize, uint8_t *outData) {
   supported(__func__);
@@ -989,6 +990,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
 
   return HWC2::Error::None;
 }
+#endif /* PLATFORM_SDK_VERSION > 28 */
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   supported(__func__);
@@ -1312,6 +1314,7 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
+#if PLATFORM_SDK_VERSION > 28
     case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
       return ToHook<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(
           DisplayHook<decltype(&HwcDisplay::GetDisplayIdentificationData),
@@ -1322,7 +1325,7 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
           DisplayHook<decltype(&HwcDisplay::GetDisplayCapabilities),
                       &HwcDisplay::GetDisplayCapabilities, uint32_t *,
                       uint32_t *>);
-
+#endif /* PLATFORM_SDK_VERSION > 28 */
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:
       return ToHook<HWC2_PFN_SET_CURSOR_POSITION>(
