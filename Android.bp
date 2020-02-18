@@ -119,6 +119,21 @@ filegroup {
     ],
 }
 
+cc_library_shared {
+    name: "hwcomposer.drm_gralloc4",
+    defaults: ["hwcomposer.drm_defaults"],
+    whole_static_libs: ["drm_hwcomposer"],
+    srcs: [
+        "platform/platformdrmgeneric.cpp",
+        "platform/platformgralloc4.cpp",
+    ],
+    shared_libs: [
+        "libgralloctypes",
+        "android.hardware.graphics.mapper@4.0",
+        "libhidlbase",
+     ],
+}
+
 // Used by hwcomposer.drm_hikey and hwcomposer.drm_hikey960
 filegroup {
     name: "drm_hwcomposer_platformhisi",
