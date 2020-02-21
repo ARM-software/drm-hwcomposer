@@ -60,8 +60,7 @@ int DrmConnector::Init() {
   }
   ret = drm_->GetConnectorProperty(*this, "EDID", &edid_property_);
   if (ret) {
-    ALOGE("Could not get EDID property\n");
-    return ret;
+    ALOGW("Could not get EDID property\n");
   }
   if (writeback()) {
     ret = drm_->GetConnectorProperty(*this, "WRITEBACK_PIXEL_FORMATS",
