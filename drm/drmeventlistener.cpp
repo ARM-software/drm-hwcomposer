@@ -38,7 +38,7 @@ DrmEventListener::DrmEventListener(DrmDevice *drm)
 int DrmEventListener::Init() {
   uevent_fd_.Set(socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT));
   if (uevent_fd_.get() < 0) {
-    ALOGE("Failed to open uevent socket %d", uevent_fd_.get());
+    ALOGE("Failed to open uevent socket: %s", strerror(errno));
     return uevent_fd_.get();
   }
 
@@ -50,7 +50,7 @@ int DrmEventListener::Init() {
 
   int ret = bind(uevent_fd_.get(), (struct sockaddr *)&addr, sizeof(addr));
   if (ret) {
-    ALOGE("Failed to bind uevent socket %d", -errno);
+    ALOGE("Failed to bind uevent socket: %s", strerror(errno));
     return -errno;
   }
 

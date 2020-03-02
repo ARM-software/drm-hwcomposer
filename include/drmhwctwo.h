@@ -22,6 +22,7 @@
 
 #include <hardware/hwcomposer2.h>
 
+#include <math.h>
 #include <array>
 #include <map>
 
@@ -93,6 +94,19 @@ class DrmHwcTwo : public hwc2_device_t {
 
     void PopulateDrmLayer(DrmHwcLayer *layer);
 
+    bool RequireScalingOrPhasing() {
+      float src_width = source_crop_.right - source_crop_.left;
+      float src_height = source_crop_.bottom - source_crop_.top;
+
+      float dest_width = display_frame_.right - display_frame_.left;
+      float dest_height = display_frame_.bottom - display_frame_.top;
+
+      bool scaling = src_width != dest_width || src_height != dest_height;
+      bool phasing = (source_crop_.left - floor(source_crop_.left) != 0) ||
+                     (source_crop_.top - floor(source_crop_.top) != 0);
+      return scaling || phasing;
+    }
+
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -149,6 +163,9 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);
+    void RegisterRefreshCallback(hwc2_callback_data_t data,
+                                 hwc2_function_pointer_t func);
+
     void ClearDisplay();
 
     std::string Dump();
@@ -173,6 +190,13 @@ class DrmHwcTwo : public hwc2_device_t {
                                    uint32_t *num_elements, hwc2_layer_t *layers,
                                    int32_t *layer_requests);
     HWC2::Error GetDisplayType(int32_t *type);
+#if PLATFORM_SDK_VERSION > 28
+    HWC2::Error GetDisplayIdentificationData(uint8_t *outPort,
+                                             uint32_t *outDataSize,
+                                             uint8_t *outData);
+    HWC2::Error GetDisplayCapabilities(uint32_t *outNumCapabilities,
+                                       uint32_t *outCapabilities);
+#endif
     HWC2::Error GetDozeSupport(int32_t *support);
     HWC2::Error GetHdrCapabilities(uint32_t *num_types, int32_t *types,
                                    float *max_luminance,
@@ -236,9 +260,11 @@ class DrmHwcTwo : public hwc2_device_t {
     struct Stats {
       Stats minus(Stats b) {
         return {total_frames_ - b.total_frames_,
-                total_pixops_ - b.total_pixops_, gpu_pixops_ - b.gpu_pixops_,
+                total_pixops_ - b.total_pixops_,
+                gpu_pixops_ - b.gpu_pixops_,
                 failed_kms_validate_ - b.failed_kms_validate_,
-                failed_kms_present_ - b.failed_kms_present_};
+                failed_kms_present_ - b.failed_kms_present_,
+                frames_flattened_ - b.frames_flattened_};
       }
 
       uint32_t total_frames_ = 0;
@@ -246,6 +272,7 @@ class DrmHwcTwo : public hwc2_device_t {
       uint64_t gpu_pixops_ = 0;
       uint32_t failed_kms_validate_ = 0;
       uint32_t failed_kms_present_ = 0;
+      uint32_t frames_flattened_ = 0;
     } total_stats_, prev_stats_;
     std::string DumpDelta(DrmHwcTwo::HwcDisplay::Stats delta);
   };
