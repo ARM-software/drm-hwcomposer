@@ -142,6 +142,7 @@ std::string DrmHwcTwo::HwcDisplay::DumpDelta(
           << ((delta.failed_kms_present_ > 0)
                   ? " !!! Internal failure, FIX it please\n"
                   : "")
+          << " Flattened frames: " << delta.frames_flattened_ << "\n"
           << " Pixel operations (free units)"
           << " : [TOTAL: " << delta.total_pixops_
           << " / GPU: " << delta.gpu_pixops_ << "]\n"
@@ -152,6 +153,8 @@ std::string DrmHwcTwo::HwcDisplay::DumpDelta(
 std::string DrmHwcTwo::HwcDisplay::Dump() {
   auto out = (std::stringstream()
               << "- Display on: " << connector_->name() << "\n"
+              << "  Flattening state: " << compositor_.GetFlatteningState()
+              << "\n"
               << "Statistics since system boot:\n"
               << DumpDelta(total_stats_) << "\n\n"
               << "Statistics since last dumpsys request:\n"
@@ -206,6 +209,12 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
       auto &drmDevices = resource_manager_.getDrmDevices();
       for (auto &device : drmDevices)
         HandleInitialHotplugState(device.get());
+      break;
+    }
+    case HWC2::Callback::Refresh: {
+      for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
+           displays_)
+        d.second.RegisterRefreshCallback(data, function);
       break;
     }
     case HWC2::Callback::Vsync: {
@@ -308,6 +317,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
   auto callback = std::make_shared<DrmVsyncCallback>(data, func);
   vsync_worker_.RegisterCallback(std::move(callback));
   return HWC2::Error::None;
+}
+
+void DrmHwcTwo::HwcDisplay::RegisterRefreshCallback(
+    hwc2_callback_data_t data, hwc2_function_pointer_t func) {
+  supported(__func__);
+  auto hook = reinterpret_cast<HWC2_PFN_REFRESH>(func);
+  compositor_.SetRefreshCallback([data, hook](int display) {
+    hook(data, static_cast<hwc2_display_t>(display));
+  });
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
@@ -900,58 +918,106 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
   int client_start = -1, client_size = 0;
 
-  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-    if (!HardwareSupportsLayerType(l.second->sf_type()) ||
-        !importer_->CanImportBuffer(l.second->buffer()) ||
-        color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY) {
-      if (client_start < 0)
-        client_start = l.first;
-      client_size = (l.first - client_start) + 1;
-    }
-  }
-
-  int extra_client = (z_map.size() - client_size) - avail_planes;
-  if (extra_client > 0) {
-    int start = 0, steps;
-    if (client_size != 0) {
-      int prepend = std::min(client_start, extra_client);
-      int append = std::min(int(z_map.size() - (client_start + client_size)),
-                            extra_client);
-      start = client_start - prepend;
-      client_size += extra_client;
-      steps = 1 + std::min(std::min(append, prepend),
-                           int(z_map.size()) - (start + client_size));
-    } else {
-      client_size = extra_client;
-      steps = 1 + z_map.size() - extra_client;
-    }
-
-    gpu_pixops = INT_MAX;
-    for (int i = 0; i < steps; i++) {
-      uint32_t po = CalcPixOps(z_map, start + i, client_size);
-      if (po < gpu_pixops) {
-        gpu_pixops = po;
-        client_start = start + i;
+  if (compositor_.ShouldFlattenOnClient()) {
+    client_start = 0;
+    client_size = z_map.size();
+    MarkValidated(z_map, client_start, client_size);
+  } else {
+    for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
+      if (!HardwareSupportsLayerType(l.second->sf_type()) ||
+          !importer_->CanImportBuffer(l.second->buffer()) ||
+          color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY ||
+          (l.second->RequireScalingOrPhasing() &&
+           resource_manager_->ForcedScalingWithGpu())) {
+        if (client_start < 0)
+          client_start = l.first;
+        client_size = (l.first - client_start) + 1;
       }
     }
-  }
 
-  MarkValidated(z_map, client_start, client_size);
+    int extra_client = (z_map.size() - client_size) - avail_planes;
+    if (extra_client > 0) {
+      int start = 0, steps;
+      if (client_size != 0) {
+        int prepend = std::min(client_start, extra_client);
+        int append = std::min(int(z_map.size() - (client_start + client_size)),
+                              extra_client);
+        start = client_start - prepend;
+        client_size += extra_client;
+        steps = 1 + std::min(std::min(append, prepend),
+                             int(z_map.size()) - (start + client_size));
+      } else {
+        client_size = extra_client;
+        steps = 1 + z_map.size() - extra_client;
+      }
 
-  if (CreateComposition(true) != HWC2::Error::None) {
-    ++total_stats_.failed_kms_validate_;
-    gpu_pixops = total_pixops;
-    client_size = z_map.size();
-    MarkValidated(z_map, 0, client_size);
+      gpu_pixops = INT_MAX;
+      for (int i = 0; i < steps; i++) {
+        uint32_t po = CalcPixOps(z_map, start + i, client_size);
+        if (po < gpu_pixops) {
+          gpu_pixops = po;
+          client_start = start + i;
+        }
+      }
+    }
+
+    MarkValidated(z_map, client_start, client_size);
+
+    if (CreateComposition(true) != HWC2::Error::None) {
+      ++total_stats_.failed_kms_validate_;
+      gpu_pixops = total_pixops;
+      client_size = z_map.size();
+      MarkValidated(z_map, 0, client_size);
+    }
   }
 
   *num_types = client_size;
 
+  total_stats_.frames_flattened_ = compositor_.GetFlattenedFramesCount();
   total_stats_.gpu_pixops_ += gpu_pixops;
   total_stats_.total_pixops_ += total_pixops;
 
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
+
+#if PLATFORM_SDK_VERSION > 28
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
+    uint8_t *outPort, uint32_t *outDataSize, uint8_t *outData) {
+  supported(__func__);
+
+  drmModePropertyBlobPtr blob;
+  int ret;
+  uint64_t blob_id;
+
+  std::tie(ret, blob_id) = connector_->edid_property().value();
+  if (ret) {
+    ALOGE("Failed to get edid property value.");
+    return HWC2::Error::Unsupported;
+  }
+
+  blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
+
+  outData = static_cast<uint8_t *>(blob->data);
+
+  *outPort = connector_->id();
+  *outDataSize = blob->length;
+
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
+    uint32_t *outNumCapabilities, uint32_t *outCapabilities) {
+  unsupported(__func__, outCapabilities);
+
+  if (outNumCapabilities == NULL) {
+    return HWC2::Error::BadParameter;
+  }
+
+  *outNumCapabilities = 0;
+
+  return HWC2::Error::None;
+}
+#endif /* PLATFORM_SDK_VERSION > 28 */
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   supported(__func__);
@@ -1275,7 +1341,18 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
-
+#if PLATFORM_SDK_VERSION > 28
+    case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
+      return ToHook<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayIdentificationData),
+                      &HwcDisplay::GetDisplayIdentificationData, uint8_t *,
+                      uint32_t *, uint8_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayCapabilities:
+      return ToHook<HWC2_PFN_GET_DISPLAY_CAPABILITIES>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayCapabilities),
+                      &HwcDisplay::GetDisplayCapabilities, uint32_t *,
+                      uint32_t *>);
+#endif /* PLATFORM_SDK_VERSION > 28 */
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:
       return ToHook<HWC2_PFN_SET_CURSOR_POSITION>(

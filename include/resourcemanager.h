@@ -40,6 +40,9 @@ class ResourceManager {
   int getDisplayCount() const {
     return num_displays_;
   }
+  bool ForcedScalingWithGpu() {
+    return scale_with_gpu_;
+  }
 
  private:
   int AddDrmDevice(std::string path);
@@ -48,6 +51,8 @@ class ResourceManager {
   std::vector<std::unique_ptr<DrmDevice>> drms_;
   std::vector<std::shared_ptr<Importer>> importers_;
   const gralloc_module_t *gralloc_;
+
+  bool scale_with_gpu_;
 };
 }  // namespace android
 

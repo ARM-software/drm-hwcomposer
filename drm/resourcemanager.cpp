@@ -50,6 +50,10 @@ int ResourceManager::Init() {
     return ret ? -EINVAL : ret;
   }
 
+  char scale_with_gpu[PROPERTY_VALUE_MAX];
+  property_get("hwc.drm.scale_with_gpu", scale_with_gpu, "0");
+  scale_with_gpu_ = bool(strncmp(scale_with_gpu, "0", 1));
+
   return hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
                        (const hw_module_t **)&gralloc_);
 }
