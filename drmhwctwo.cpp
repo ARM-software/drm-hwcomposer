@@ -963,7 +963,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
     MarkValidated(z_map, client_start, client_size);
 
-    if (CreateComposition(true) != HWC2::Error::None) {
+    bool testing_needed = !(client_start == 0 && client_size == z_map.size());
+
+    if (testing_needed && CreateComposition(true) != HWC2::Error::None) {
       ++total_stats_.failed_kms_validate_;
       gpu_pixops = total_pixops;
       client_size = z_map.size();
