@@ -997,10 +997,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
 
   blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
 
-  outData = static_cast<uint8_t *>(blob->data);
-
+  if (outData) {
+    *outDataSize = std::min(*outDataSize, blob->length);
+    memcpy(outData, blob->data, *outDataSize);
+  } else {
+    *outDataSize = blob->length;
+  }
   *outPort = connector_->id();
-  *outDataSize = blob->length;
 
   return HWC2::Error::None;
 }
