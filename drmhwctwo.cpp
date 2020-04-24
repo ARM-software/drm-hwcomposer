@@ -1029,6 +1029,26 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
 }
 #endif /* PLATFORM_SDK_VERSION > 28 */
 
+#if PLATFORM_SDK_VERSION > 27
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetRenderIntents(
+    int32_t mode, uint32_t *outNumIntents,
+    int32_t * /*android_render_intent_v1_1_t*/ outIntents) {
+  if (mode != HAL_COLOR_MODE_NATIVE) {
+    return HWC2::Error::BadParameter;
+  }
+
+  if (outIntents == nullptr) {
+    *outNumIntents = 1;
+    return HWC2::Error::None;
+  }
+  *outNumIntents = 1;
+  outIntents[0] = HAL_RENDER_INTENT_COLORIMETRIC;
+  return HWC2::Error::None;
+}
+
+#endif /* PLATFORM_SDK_VERSION > 27 */
+
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   supported(__func__);
   cursor_x_ = x;
@@ -1345,6 +1365,13 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
+#if PLATFORM_SDK_VERSION > 27
+    case HWC2::FunctionDescriptor::GetRenderIntents:
+      return ToHook<HWC2_PFN_GET_RENDER_INTENTS>(
+          DisplayHook<decltype(&HwcDisplay::GetRenderIntents),
+                      &HwcDisplay::GetRenderIntents, int32_t, uint32_t *,
+                      int32_t *>);
+#endif
 #if PLATFORM_SDK_VERSION > 28
     case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
       return ToHook<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(

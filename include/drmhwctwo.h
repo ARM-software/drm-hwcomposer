@@ -190,6 +190,10 @@ class DrmHwcTwo : public hwc2_device_t {
                                    uint32_t *num_elements, hwc2_layer_t *layers,
                                    int32_t *layer_requests);
     HWC2::Error GetDisplayType(int32_t *type);
+#if PLATFORM_SDK_VERSION > 27
+    HWC2::Error GetRenderIntents(int32_t mode, uint32_t *outNumIntents,
+                                 int32_t *outIntents);
+#endif
 #if PLATFORM_SDK_VERSION > 28
     HWC2::Error GetDisplayIdentificationData(uint8_t *outPort,
                                              uint32_t *outDataSize,
