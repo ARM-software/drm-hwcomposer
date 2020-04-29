@@ -1047,6 +1047,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetRenderIntents(
   return HWC2::Error::None;
 }
 
+HWC2::Error DrmHwcTwo::HwcDisplay::SetColorModeWithIntent(int32_t mode,
+                                                          int32_t intent) {
+  if (mode != HAL_COLOR_MODE_NATIVE)
+    return HWC2::Error::BadParameter;
+  if (intent != HAL_RENDER_INTENT_COLORIMETRIC)
+    return HWC2::Error::BadParameter;
+  color_mode_ = mode;
+  return HWC2::Error::None;
+}
+
 #endif /* PLATFORM_SDK_VERSION > 27 */
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
@@ -1371,6 +1381,10 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
           DisplayHook<decltype(&HwcDisplay::GetRenderIntents),
                       &HwcDisplay::GetRenderIntents, int32_t, uint32_t *,
                       int32_t *>);
+    case HWC2::FunctionDescriptor::SetColorModeWithRenderIntent:
+      return ToHook<HWC2_PFN_SET_COLOR_MODE_WITH_RENDER_INTENT>(
+          DisplayHook<decltype(&HwcDisplay::SetColorModeWithIntent),
+                      &HwcDisplay::SetColorModeWithIntent, int32_t, int32_t>);
 #endif
 #if PLATFORM_SDK_VERSION > 28
     case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
