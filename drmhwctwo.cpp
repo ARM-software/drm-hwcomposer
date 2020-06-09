@@ -1040,12 +1040,6 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
   supported(__func__);
   UniqueFd uf(acquire_fence);
 
-  // The buffer and acquire_fence are handled elsewhere
-  if (sf_type_ == HWC2::Composition::Client ||
-      sf_type_ == HWC2::Composition::Sideband ||
-      sf_type_ == HWC2::Composition::SolidColor)
-    return HWC2::Error::None;
-
   set_buffer(buffer);
   set_acquire_fence(uf.get());
   return HWC2::Error::None;
