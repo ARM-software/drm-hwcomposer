@@ -910,9 +910,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   if (avail_planes < layers_.size())
     avail_planes--;
 
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map;
+  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map, z_map_tmp;
+  uint32_t z_index = 0;
+  // First create a map of layers and z_order values
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
+    z_map_tmp.emplace(std::make_pair(l.second.z_order(), &l.second));
+  // normalise the map so that the lowest z_order layer has key 0
+  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map_tmp)
+    z_map.emplace(std::make_pair(z_index++, l.second));
 
   uint32_t total_pixops = CalcPixOps(z_map, 0, z_map.size()), gpu_pixops = 0;
 
