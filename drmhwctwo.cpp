@@ -910,9 +910,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   if (avail_planes < layers_.size())
     avail_planes--;
 
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map;
+  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map, z_map_tmp;
+  uint32_t z_index = 0;
+  // First create a map of layers and z_order values
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
+    z_map_tmp.emplace(std::make_pair(l.second.z_order(), &l.second));
+  // normalise the map so that the lowest z_order layer has key 0
+  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map_tmp)
+    z_map.emplace(std::make_pair(z_index++, l.second));
 
   uint32_t total_pixops = CalcPixOps(z_map, 0, z_map.size()), gpu_pixops = 0;
 
@@ -963,7 +968,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
     MarkValidated(z_map, client_start, client_size);
 
-    if (CreateComposition(true) != HWC2::Error::None) {
+    bool testing_needed = !(client_start == 0 && client_size == z_map.size());
+
+    if (testing_needed && CreateComposition(true) != HWC2::Error::None) {
       ++total_stats_.failed_kms_validate_;
       gpu_pixops = total_pixops;
       client_size = z_map.size();
@@ -997,10 +1004,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
 
   blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
 
-  outData = static_cast<uint8_t *>(blob->data);
-
+  if (outData) {
+    *outDataSize = std::min(*outDataSize, blob->length);
+    memcpy(outData, blob->data, *outDataSize);
+  } else {
+    *outDataSize = blob->length;
+  }
   *outPort = connector_->id();
-  *outDataSize = blob->length;
 
   return HWC2::Error::None;
 }
@@ -1017,7 +1027,49 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
 
   return HWC2::Error::None;
 }
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayBrightnessSupport(
+    bool *supported) {
+  *supported = false;
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetDisplayBrightness(
+    float /* brightness */) {
+  return HWC2::Error::Unsupported;
+}
+
 #endif /* PLATFORM_SDK_VERSION > 28 */
+
+#if PLATFORM_SDK_VERSION > 27
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetRenderIntents(
+    int32_t mode, uint32_t *outNumIntents,
+    int32_t * /*android_render_intent_v1_1_t*/ outIntents) {
+  if (mode != HAL_COLOR_MODE_NATIVE) {
+    return HWC2::Error::BadParameter;
+  }
+
+  if (outIntents == nullptr) {
+    *outNumIntents = 1;
+    return HWC2::Error::None;
+  }
+  *outNumIntents = 1;
+  outIntents[0] = HAL_RENDER_INTENT_COLORIMETRIC;
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetColorModeWithIntent(int32_t mode,
+                                                          int32_t intent) {
+  if (mode != HAL_COLOR_MODE_NATIVE)
+    return HWC2::Error::BadParameter;
+  if (intent != HAL_RENDER_INTENT_COLORIMETRIC)
+    return HWC2::Error::BadParameter;
+  color_mode_ = mode;
+  return HWC2::Error::None;
+}
+
+#endif /* PLATFORM_SDK_VERSION > 27 */
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   supported(__func__);
@@ -1036,12 +1088,6 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
                                                 int32_t acquire_fence) {
   supported(__func__);
   UniqueFd uf(acquire_fence);
-
-  // The buffer and acquire_fence are handled elsewhere
-  if (sf_type_ == HWC2::Composition::Client ||
-      sf_type_ == HWC2::Composition::Sideband ||
-      sf_type_ == HWC2::Composition::SolidColor)
-    return HWC2::Error::None;
 
   set_buffer(buffer);
   set_acquire_fence(uf.get());
@@ -1341,6 +1387,17 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
+#if PLATFORM_SDK_VERSION > 27
+    case HWC2::FunctionDescriptor::GetRenderIntents:
+      return ToHook<HWC2_PFN_GET_RENDER_INTENTS>(
+          DisplayHook<decltype(&HwcDisplay::GetRenderIntents),
+                      &HwcDisplay::GetRenderIntents, int32_t, uint32_t *,
+                      int32_t *>);
+    case HWC2::FunctionDescriptor::SetColorModeWithRenderIntent:
+      return ToHook<HWC2_PFN_SET_COLOR_MODE_WITH_RENDER_INTENT>(
+          DisplayHook<decltype(&HwcDisplay::SetColorModeWithIntent),
+                      &HwcDisplay::SetColorModeWithIntent, int32_t, int32_t>);
+#endif
 #if PLATFORM_SDK_VERSION > 28
     case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
       return ToHook<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(
@@ -1352,6 +1409,14 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
           DisplayHook<decltype(&HwcDisplay::GetDisplayCapabilities),
                       &HwcDisplay::GetDisplayCapabilities, uint32_t *,
                       uint32_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayBrightnessSupport:
+      return ToHook<HWC2_PFN_GET_DISPLAY_BRIGHTNESS_SUPPORT>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayBrightnessSupport),
+                      &HwcDisplay::GetDisplayBrightnessSupport, bool *>);
+    case HWC2::FunctionDescriptor::SetDisplayBrightness:
+      return ToHook<HWC2_PFN_SET_DISPLAY_BRIGHTNESS>(
+          DisplayHook<decltype(&HwcDisplay::SetDisplayBrightness),
+                      &HwcDisplay::SetDisplayBrightness, float>);
 #endif /* PLATFORM_SDK_VERSION > 28 */
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:

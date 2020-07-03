@@ -61,6 +61,12 @@ cc_defaults {
         "-DHWC2_INCLUDE_STRINGIFICATION",
     ],
 
+    product_variables: {
+        platform_sdk_version: {
+            cflags: ["-DPLATFORM_SDK_VERSION=%d"],
+        },
+    },
+
     relative_install_path: "hw",
     vendor: true,
 }
