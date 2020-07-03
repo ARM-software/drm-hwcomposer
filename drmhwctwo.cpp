@@ -1027,6 +1027,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
 
   return HWC2::Error::None;
 }
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayBrightnessSupport(
+    bool *supported) {
+  *supported = false;
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetDisplayBrightness(
+    float /* brightness */) {
+  return HWC2::Error::Unsupported;
+}
+
 #endif /* PLATFORM_SDK_VERSION > 28 */
 
 #if PLATFORM_SDK_VERSION > 27
@@ -1397,6 +1409,14 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
           DisplayHook<decltype(&HwcDisplay::GetDisplayCapabilities),
                       &HwcDisplay::GetDisplayCapabilities, uint32_t *,
                       uint32_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayBrightnessSupport:
+      return ToHook<HWC2_PFN_GET_DISPLAY_BRIGHTNESS_SUPPORT>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayBrightnessSupport),
+                      &HwcDisplay::GetDisplayBrightnessSupport, bool *>);
+    case HWC2::FunctionDescriptor::SetDisplayBrightness:
+      return ToHook<HWC2_PFN_SET_DISPLAY_BRIGHTNESS>(
+          DisplayHook<decltype(&HwcDisplay::SetDisplayBrightness),
+                      &HwcDisplay::SetDisplayBrightness, float>);
 #endif /* PLATFORM_SDK_VERSION > 28 */
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:
