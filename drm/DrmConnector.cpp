@@ -58,10 +58,7 @@ int DrmConnector::Init() {
     ALOGE("Could not get CRTC_ID property\n");
     return ret;
   }
-  ret = drm_->GetConnectorProperty(*this, "EDID", &edid_property_);
-  if (ret) {
-    ALOGW("Could not get EDID property\n");
-  }
+  ret = UpdateEdidProperty();
   if (writeback()) {
     ret = drm_->GetConnectorProperty(*this, "WRITEBACK_PIXEL_FORMATS",
                                      &writeback_pixel_formats_);
@@ -82,6 +79,30 @@ int DrmConnector::Init() {
       return ret;
     }
   }
+  return 0;
+}
+
+int DrmConnector::UpdateEdidProperty() {
+  int ret = drm_->GetConnectorProperty(*this, "EDID", &edid_property_);
+  if (ret) {
+    ALOGW("Could not get EDID property\n");
+  }
+  return ret;
+}
+
+int DrmConnector::GetEdidBlob(drmModePropertyBlobPtr &blob) {
+  uint64_t blob_id;
+  int ret = UpdateEdidProperty();
+  if (ret) {
+    return ret;
+  }
+
+  std::tie(ret, blob_id) = edid_property().value();
+  if (ret) {
+    return ret;
+  }
+
+  blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
   return 0;
 }
 

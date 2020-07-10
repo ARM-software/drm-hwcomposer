@@ -915,16 +915,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
   supported(__func__);
 
   drmModePropertyBlobPtr blob;
-  int ret;
-  uint64_t blob_id;
 
-  std::tie(ret, blob_id) = connector_->edid_property().value();
-  if (ret) {
+  if (connector_->GetEdidBlob(blob)) {
     ALOGE("Failed to get edid property value.");
     return HWC2::Error::Unsupported;
   }
-
-  blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
 
   if (outData) {
     *outDataSize = std::min(*outDataSize, blob->length);

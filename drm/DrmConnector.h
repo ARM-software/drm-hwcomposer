@@ -40,6 +40,8 @@ class DrmConnector {
   DrmConnector &operator=(const DrmProperty &) = delete;
 
   int Init();
+  int UpdateEdidProperty();
+  int GetEdidBlob(drmModePropertyBlobPtr &blob);
 
   uint32_t id() const;
 
