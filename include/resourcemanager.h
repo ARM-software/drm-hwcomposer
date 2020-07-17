@@ -46,6 +46,7 @@ class ResourceManager {
 
  private:
   int AddDrmDevice(std::string path);
+  static bool IsKMSDev(const char *path);
 
   int num_displays_;
   std::vector<std::unique_ptr<DrmDevice>> drms_;
