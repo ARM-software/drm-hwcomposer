@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef ANDROID_DRM_HWC_TWO_H_
+#define ANDROID_DRM_HWC_TWO_H_
+
 #include "drmdisplaycompositor.h"
 #include "drmhwcomposer.h"
 #include "platform.h"
@@ -370,3 +373,5 @@ class DrmHwcTwo : public hwc2_device_t {
   std::string mDumpString;
 };
 }  // namespace android
+
+#endif
