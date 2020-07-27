@@ -40,7 +40,6 @@ class DrmHwcTwo : public hwc2_device_t {
 
   HWC2::Error Init();
 
- private:
   class HwcLayer {
    public:
     HWC2::Composition sf_type() const {
@@ -299,6 +298,7 @@ class DrmHwcTwo : public hwc2_device_t {
     DrmDevice *drm_;
   };
 
+ private:
   static DrmHwcTwo *toDrmHwcTwo(hwc2_device_t *dev) {
     return static_cast<DrmHwcTwo *>(dev);
   }
