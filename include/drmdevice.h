@@ -70,6 +70,8 @@ class DrmDevice {
   int GetConnectorProperty(const DrmConnector &connector, const char *prop_name,
                            DrmProperty *property);
 
+  const std::string GetName() const;
+
   const std::vector<std::unique_ptr<DrmCrtc>> &crtcs() const;
   uint32_t next_mode_id();
 

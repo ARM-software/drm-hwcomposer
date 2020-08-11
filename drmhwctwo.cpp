@@ -18,6 +18,7 @@
 #define LOG_TAG "hwc-drm-two"
 
 #include "drmhwctwo.h"
+#include "backendmanager.h"
 #include "drmdisplaycomposition.h"
 #include "drmhwcomposer.h"
 #include "platform.h"
@@ -296,6 +297,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
   ret = vsync_worker_.Init(drm_, display);
   if (ret) {
     ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
+    return HWC2::Error::BadDisplay;
+  }
+
+  ret = BackendManager::GetInstance().SetBackendForDisplay(this);
+  if (ret) {
+    ALOGE("Failed to set backend for d=%d %d\n", display, ret);
     return HWC2::Error::BadDisplay;
   }
 
@@ -900,92 +907,8 @@ void DrmHwcTwo::HwcDisplay::MarkValidated(
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
   supported(__func__);
-  *num_types = 0;
-  *num_requests = 0;
-  size_t avail_planes = primary_planes_.size() + overlay_planes_.size();
 
-  /*
-   * If more layers then planes, save one plane
-   * for client composited layers
-   */
-  if (avail_planes < layers_.size())
-    avail_planes--;
-
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map, z_map_tmp;
-  uint32_t z_index = 0;
-  // First create a map of layers and z_order values
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    z_map_tmp.emplace(std::make_pair(l.second.z_order(), &l.second));
-  // normalise the map so that the lowest z_order layer has key 0
-  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map_tmp)
-    z_map.emplace(std::make_pair(z_index++, l.second));
-
-  uint32_t total_pixops = CalcPixOps(z_map, 0, z_map.size()), gpu_pixops = 0;
-
-  int client_start = -1, client_size = 0;
-
-  if (compositor_.ShouldFlattenOnClient()) {
-    client_start = 0;
-    client_size = z_map.size();
-    MarkValidated(z_map, client_start, client_size);
-  } else {
-    for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-      if (!HardwareSupportsLayerType(l.second->sf_type()) ||
-          !importer_->CanImportBuffer(l.second->buffer()) ||
-          color_transform_hint_ != HAL_COLOR_TRANSFORM_IDENTITY ||
-          (l.second->RequireScalingOrPhasing() &&
-           resource_manager_->ForcedScalingWithGpu())) {
-        if (client_start < 0)
-          client_start = l.first;
-        client_size = (l.first - client_start) + 1;
-      }
-    }
-
-    int extra_client = (z_map.size() - client_size) - avail_planes;
-    if (extra_client > 0) {
-      int start = 0, steps;
-      if (client_size != 0) {
-        int prepend = std::min(client_start, extra_client);
-        int append = std::min(int(z_map.size() - (client_start + client_size)),
-                              extra_client);
-        start = client_start - prepend;
-        client_size += extra_client;
-        steps = 1 + std::min(std::min(append, prepend),
-                             int(z_map.size()) - (start + client_size));
-      } else {
-        client_size = extra_client;
-        steps = 1 + z_map.size() - extra_client;
-      }
-
-      gpu_pixops = INT_MAX;
-      for (int i = 0; i < steps; i++) {
-        uint32_t po = CalcPixOps(z_map, start + i, client_size);
-        if (po < gpu_pixops) {
-          gpu_pixops = po;
-          client_start = start + i;
-        }
-      }
-    }
-
-    MarkValidated(z_map, client_start, client_size);
-
-    bool testing_needed = !(client_start == 0 && client_size == z_map.size());
-
-    if (testing_needed && CreateComposition(true) != HWC2::Error::None) {
-      ++total_stats_.failed_kms_validate_;
-      gpu_pixops = total_pixops;
-      client_size = z_map.size();
-      MarkValidated(z_map, 0, client_size);
-    }
-  }
-
-  *num_types = client_size;
-
-  total_stats_.frames_flattened_ = compositor_.GetFlattenedFramesCount();
-  total_stats_.gpu_pixops_ += gpu_pixops;
-  total_stats_.total_pixops_ += total_pixops;
-
-  return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
+  return backend_->ValidateDisplay(this, num_types, num_requests);
 }
 
 #if PLATFORM_SDK_VERSION > 28

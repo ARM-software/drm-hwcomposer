@@ -94,6 +94,9 @@ cc_library_static {
 
         "utils/autolock.cpp",
         "utils/hwcutils.cpp",
+
+        "backend/backendmanager.cpp",
+        "backend/backend.cpp",
     ],
 }
 

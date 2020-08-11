@@ -570,4 +570,16 @@ int DrmDevice::GetConnectorProperty(const DrmConnector &connector,
   return GetProperty(connector.id(), DRM_MODE_OBJECT_CONNECTOR, prop_name,
                      property);
 }
+
+const std::string DrmDevice::GetName() const {
+  auto ver = drmGetVersion(fd_.get());
+  if (!ver) {
+    ALOGW("Failed to get drm version for fd=%d", fd_.get());
+    return "generic";
+  }
+
+  std::string name(ver->name);
+  drmFreeVersion(ver);
+  return name;
+}
 }  // namespace android

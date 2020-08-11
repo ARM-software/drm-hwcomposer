@@ -31,6 +31,8 @@
 
 namespace android {
 
+class Backend;
+
 class DrmHwcTwo : public hwc2_device_t {
  public:
   static int HookDevOpen(const struct hw_module_t *module, const char *name,
@@ -256,6 +258,13 @@ class DrmHwcTwo : public hwc2_device_t {
       uint32_t frames_flattened_ = 0;
     };
 
+    const Backend *backend() const {
+      return backend_.get();
+    }
+    void set_backend(std::unique_ptr<Backend> backend) {
+      backend_ = std::move(backend);
+    }
+
     const std::vector<DrmPlane *> &primary_planes() const {
       return primary_planes_;
     }
@@ -309,6 +318,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
     std::vector<DrmPlane *> primary_planes_;
     std::vector<DrmPlane *> overlay_planes_;
+
+    std::unique_ptr<Backend> backend_;
 
     VSyncWorker vsync_worker_;
     DrmConnector *connector_ = NULL;
