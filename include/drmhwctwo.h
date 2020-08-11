@@ -167,6 +167,12 @@ class DrmHwcTwo : public hwc2_device_t {
                                       hwc2_function_pointer_t func);
     void RegisterRefreshCallback(hwc2_callback_data_t data,
                                  hwc2_function_pointer_t func);
+    HWC2::Error CreateComposition(bool test);
+    bool HardwareSupportsLayerType(HWC2::Composition comp_type);
+    uint32_t CalcPixOps(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
+                        size_t first_z, size_t size);
+    void MarkValidated(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
+                       size_t client_first_z, size_t client_size);
 
     void ClearDisplay();
 
@@ -231,14 +237,67 @@ class DrmHwcTwo : public hwc2_device_t {
       return &it->second;
     }
 
+    /* Statistics */
+    struct Stats {
+      Stats minus(Stats b) {
+        return {total_frames_ - b.total_frames_,
+                total_pixops_ - b.total_pixops_,
+                gpu_pixops_ - b.gpu_pixops_,
+                failed_kms_validate_ - b.failed_kms_validate_,
+                failed_kms_present_ - b.failed_kms_present_,
+                frames_flattened_ - b.frames_flattened_};
+      }
+
+      uint32_t total_frames_ = 0;
+      uint64_t total_pixops_ = 0;
+      uint64_t gpu_pixops_ = 0;
+      uint32_t failed_kms_validate_ = 0;
+      uint32_t failed_kms_present_ = 0;
+      uint32_t frames_flattened_ = 0;
+    };
+
+    const std::vector<DrmPlane *> &primary_planes() const {
+      return primary_planes_;
+    }
+
+    const std::vector<DrmPlane *> &overlay_planes() const {
+      return overlay_planes_;
+    }
+
+    std::map<hwc2_layer_t, HwcLayer> &layers() {
+      return layers_;
+    }
+
+    const DrmDisplayCompositor &compositor() const {
+      return compositor_;
+    }
+
+    const DrmDevice *drm() const {
+      return drm_;
+    }
+
+    const DrmConnector *connector() const {
+      return connector_;
+    }
+
+    const std::shared_ptr<Importer> &importer() const {
+      return importer_;
+    }
+
+    ResourceManager *resource_manager() const {
+      return resource_manager_;
+    }
+
+    android_color_transform_t &color_transform_hint() {
+      return color_transform_hint_;
+    }
+
+    Stats &total_stats() {
+      return total_stats_;
+    }
+
    private:
-    HWC2::Error CreateComposition(bool test);
     void AddFenceToPresentFence(int fd);
-    bool HardwareSupportsLayerType(HWC2::Composition comp_type);
-    uint32_t CalcPixOps(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
-                        size_t first_z, size_t size);
-    void MarkValidated(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
-                       size_t client_first_z, size_t client_size);
 
     constexpr static size_t MATRIX_SIZE = 16;
 
@@ -265,24 +324,8 @@ class DrmHwcTwo : public hwc2_device_t {
     android_color_transform_t color_transform_hint_;
 
     uint32_t frame_no_ = 0;
-    /* Statistics */
-    struct Stats {
-      Stats minus(Stats b) {
-        return {total_frames_ - b.total_frames_,
-                total_pixops_ - b.total_pixops_,
-                gpu_pixops_ - b.gpu_pixops_,
-                failed_kms_validate_ - b.failed_kms_validate_,
-                failed_kms_present_ - b.failed_kms_present_,
-                frames_flattened_ - b.frames_flattened_};
-      }
-
-      uint32_t total_frames_ = 0;
-      uint64_t total_pixops_ = 0;
-      uint64_t gpu_pixops_ = 0;
-      uint32_t failed_kms_validate_ = 0;
-      uint32_t failed_kms_present_ = 0;
-      uint32_t frames_flattened_ = 0;
-    } total_stats_, prev_stats_;
+    Stats total_stats_;
+    Stats prev_stats_;
     std::string DumpDelta(DrmHwcTwo::HwcDisplay::Stats delta);
   };
 
