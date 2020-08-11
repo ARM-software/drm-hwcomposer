@@ -97,6 +97,7 @@ cc_library_static {
 
         "backend/backendmanager.cpp",
         "backend/backend.cpp",
+        "backend/backendclient.cpp",
     ],
 }
 
