@@ -271,7 +271,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
   // Split up the given display planes into primary and overlay to properly
   // interface with the composition
   char use_overlay_planes_prop[PROPERTY_VALUE_MAX];
-  property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "1");
+  property_get("vendor.hwc.drm.use_overlay_planes", use_overlay_planes_prop,
+               "1");
   bool use_overlay_planes = atoi(use_overlay_planes_prop);
   for (auto &plane : *planes) {
     if (plane->type() == DRM_PLANE_TYPE_PRIMARY)

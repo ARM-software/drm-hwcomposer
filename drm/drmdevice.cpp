@@ -59,7 +59,7 @@ namespace android {
 
 static std::vector<std::string> read_primary_display_order_prop() {
   std::array<char, PROPERTY_VALUE_MAX> display_order_buf;
-  property_get("hwc.drm.primary_display_order", display_order_buf.data(),
+  property_get("vendor.hwc.drm.primary_display_order", display_order_buf.data(),
                "...");
 
   std::vector<std::string> display_order;
@@ -254,7 +254,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 
   // Primary display priority:
-  // 1) hwc.drm.primary_display_order property
+  // 1) vendor.hwc.drm.primary_display_order property
   // 2) internal connectors
   // 3) anything else
   std::vector<DrmConnector *>
@@ -267,8 +267,8 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     found_primary = true;
   } else {
     ALOGE(
-        "Failed to find primary display from \"hwc.drm.primary_display_order\" "
-        "property");
+        "Failed to find primary display from "
+        "\"vendor.hwc.drm.primary_display_order\" property");
   }
 
   // If no priority display were found then pick first available as primary and

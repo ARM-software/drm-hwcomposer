@@ -33,7 +33,8 @@ int ResourceManager::Init() {
   char path_pattern[PROPERTY_VALUE_MAX];
   // Could be a valid path or it can have at the end of it the wildcard %
   // which means that it will try open all devices until an error is met.
-  int path_len = property_get("hwc.drm.device", path_pattern, "/dev/dri/card%");
+  int path_len = property_get("vendor.hwc.drm.device", path_pattern,
+                              "/dev/dri/card%");
   int ret = 0;
   if (path_pattern[path_len - 1] != '%') {
     ret = AddDrmDevice(std::string(path_pattern));
@@ -58,7 +59,7 @@ int ResourceManager::Init() {
   }
 
   char scale_with_gpu[PROPERTY_VALUE_MAX];
-  property_get("hwc.drm.scale_with_gpu", scale_with_gpu, "0");
+  property_get("vendor.hwc.drm.scale_with_gpu", scale_with_gpu, "0");
   scale_with_gpu_ = bool(strncmp(scale_with_gpu, "0", 1));
 
   return hw_get_module(GRALLOC_HARDWARE_MODULE_ID,

@@ -66,7 +66,8 @@ int DrmGenericImporter::Init() {
         gralloc_->common.author);
 
   char exclude_non_hwfb_prop[PROPERTY_VALUE_MAX];
-  property_get("hwc.drm.exclude_non_hwfb_imports", exclude_non_hwfb_prop, "0");
+  property_get("vendor.hwc.drm.exclude_non_hwfb_imports", exclude_non_hwfb_prop,
+               "0");
   exclude_non_hwfb_ = static_cast<bool>(strncmp(exclude_non_hwfb_prop, "0", 1));
 
   return 0;
