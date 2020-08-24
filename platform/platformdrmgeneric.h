@@ -48,6 +48,7 @@ class DrmGenericImporter : public Importer {
 
   uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
   uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
+  bool GetYuvPlaneInfo(int num_fds, buffer_handle_t handle, hwc_drm_bo_t *bo);
 
  protected:
   DrmDevice *drm_;
