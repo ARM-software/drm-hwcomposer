@@ -45,8 +45,7 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
 }
 #endif
 
-DrmGenericImporter::DrmGenericImporter(DrmDevice *drm)
-    : drm_(drm), exclude_non_hwfb_(false) {
+DrmGenericImporter::DrmGenericImporter(DrmDevice *drm) : drm_(drm) {
 }
 
 DrmGenericImporter::~DrmGenericImporter() {
@@ -62,11 +61,6 @@ int DrmGenericImporter::Init() {
 
   ALOGI("Using %s gralloc module: %s\n", gralloc_->common.name,
         gralloc_->common.author);
-
-  char exclude_non_hwfb_prop[PROPERTY_VALUE_MAX];
-  property_get("vendor.hwc.drm.exclude_non_hwfb_imports", exclude_non_hwfb_prop,
-               "0");
-  exclude_non_hwfb_ = static_cast<bool>(strncmp(exclude_non_hwfb_prop, "0", 1));
 
   return 0;
 }
@@ -346,9 +340,6 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
     return false;
 
   if (bo.prime_fds[0] == 0)
-    return false;
-
-  if (exclude_non_hwfb_ && !(bo.usage & GRALLOC_USAGE_HW_FB))
     return false;
 
   return true;

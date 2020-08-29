@@ -55,7 +55,6 @@ class DrmGenericImporter : public Importer {
 
  private:
   const gralloc_module_t *gralloc_;
-  bool exclude_non_hwfb_;
 
   int CloseHandle(uint32_t gem_handle);
   std::map<uint32_t, int> gem_refcount_;
