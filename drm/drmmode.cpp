@@ -17,10 +17,6 @@
 #include "drmmode.h"
 #include "drmdevice.h"
 
-#include <stdint.h>
-#include <xf86drmMode.h>
-#include <string>
-
 namespace android {
 
 DrmMode::DrmMode(drmModeModeInfoPtr m)

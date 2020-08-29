@@ -17,11 +17,11 @@
 #ifndef ANDROID_DRM_CRTC_H_
 #define ANDROID_DRM_CRTC_H_
 
-#include "drmmode.h"
-#include "drmproperty.h"
-
 #include <stdint.h>
 #include <xf86drmMode.h>
+
+#include "drmmode.h"
+#include "drmproperty.h"
 
 namespace android {
 

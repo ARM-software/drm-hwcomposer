@@ -19,10 +19,10 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <string>
 
 #include <condition_variable>
 #include <mutex>
+#include <string>
 #include <thread>
 
 namespace android {

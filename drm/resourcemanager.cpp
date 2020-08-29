@@ -22,7 +22,6 @@
 #include <log/log.h>
 #include <sys/stat.h>
 #include <sstream>
-#include <string>
 
 namespace android {
 

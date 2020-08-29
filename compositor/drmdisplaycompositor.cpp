@@ -19,23 +19,23 @@
 
 #include "drmdisplaycompositor.h"
 
+#include <drm/drm_mode.h>
+#include <log/log.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdlib.h>
+#include <sync/sync.h>
 #include <time.h>
+#include <utils/Trace.h>
+
 #include <array>
 #include <sstream>
 #include <vector>
 
-#include <drm/drm_mode.h>
-#include <log/log.h>
-#include <sync/sync.h>
-#include <utils/Trace.h>
-
-#include "autolock.h"
-#include "drmcrtc.h"
-#include "drmdevice.h"
-#include "drmplane.h"
+#include "drm/drmcrtc.h"
+#include "drm/drmdevice.h"
+#include "drm/drmplane.h"
+#include "utils/autolock.h"
 
 static const uint32_t kWaitWritebackFence = 100;  // ms
 

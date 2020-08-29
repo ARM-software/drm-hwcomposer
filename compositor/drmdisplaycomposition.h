@@ -17,15 +17,15 @@
 #ifndef ANDROID_DRM_DISPLAY_COMPOSITION_H_
 #define ANDROID_DRM_DISPLAY_COMPOSITION_H_
 
-#include "drmcrtc.h"
-#include "drmhwcomposer.h"
-#include "drmplane.h"
+#include <hardware/hardware.h>
+#include <hardware/hwcomposer.h>
 
 #include <sstream>
 #include <vector>
 
-#include <hardware/hardware.h>
-#include <hardware/hwcomposer.h>
+#include "drm/drmcrtc.h"
+#include "drm/drmplane.h"
+#include "drmhwcomposer.h"
 
 namespace android {
 

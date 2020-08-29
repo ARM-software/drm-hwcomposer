@@ -17,8 +17,6 @@
 #define LOG_TAG "hwc-platform-drm-generic"
 
 #include "platformdrmgeneric.h"
-#include "drmdevice.h"
-#include "platform.h"
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>

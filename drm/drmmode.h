@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 #include <xf86drmMode.h>
+
 #include <string>
 
 namespace android {

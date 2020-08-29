@@ -16,7 +16,6 @@
 
 #include "backendclient.h"
 #include "backendmanager.h"
-#include "drmhwctwo.h"
 
 namespace android {
 

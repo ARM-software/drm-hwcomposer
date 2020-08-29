@@ -17,13 +17,13 @@
 #ifndef ANDROID_PLATFORM_DRM_GENERIC_H_
 #define ANDROID_PLATFORM_DRM_GENERIC_H_
 
-#include "drmdevice.h"
-#include "platform.h"
-
+#include <drm/drm_fourcc.h>
 #include <hardware/gralloc.h>
+
 #include <map>
 
-#include <drm/drm_fourcc.h>
+#include "drm/drmdevice.h"
+#include "platform.h"
 
 #ifndef DRM_FORMAT_INVALID
 #define DRM_FORMAT_INVALID 0

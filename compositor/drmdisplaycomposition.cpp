@@ -17,20 +17,18 @@
 #define LOG_TAG "hwc-drm-display-composition"
 
 #include "drmdisplaycomposition.h"
-#include "drmcrtc.h"
-#include "drmdevice.h"
-#include "drmdisplaycompositor.h"
-#include "drmplane.h"
-#include "platform.h"
 
+#include <log/log.h>
 #include <stdlib.h>
+#include <sync/sync.h>
+#include <xf86drmMode.h>
 
 #include <algorithm>
 #include <unordered_set>
 
-#include <log/log.h>
-#include <sync/sync.h>
-#include <xf86drmMode.h>
+#include "drm/drmdevice.h"
+#include "drmdisplaycompositor.h"
+#include "platform/platform.h"
 
 namespace android {
 

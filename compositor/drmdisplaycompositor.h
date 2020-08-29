@@ -17,19 +17,19 @@
 #ifndef ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 #define ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 
-#include "drmdisplaycomposition.h"
-#include "drmframebuffer.h"
-#include "drmhwcomposer.h"
-#include "resourcemanager.h"
-#include "vsyncworker.h"
-
+#include <hardware/hardware.h>
+#include <hardware/hwcomposer.h>
 #include <pthread.h>
+
 #include <memory>
 #include <sstream>
 #include <tuple>
 
-#include <hardware/hardware.h>
-#include <hardware/hwcomposer.h>
+#include "drm/resourcemanager.h"
+#include "drm/vsyncworker.h"
+#include "drmdisplaycomposition.h"
+#include "drmframebuffer.h"
+#include "drmhwcomposer.h"
 
 // One for the front, one for the back, and one for cases where we need to
 // squash a frame that the hw can't display with hw overlays.

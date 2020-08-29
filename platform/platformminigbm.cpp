@@ -17,13 +17,10 @@
 #define LOG_TAG "hwc-platform-drm-minigbm"
 
 #include "platformminigbm.h"
-#include "drmdevice.h"
-#include "platform.h"
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
-#include <hardware/gralloc.h>
 #include <log/log.h>
 
 #include "cros_gralloc_handle.h"

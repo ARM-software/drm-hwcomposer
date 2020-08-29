@@ -17,10 +17,10 @@
 #ifndef RESOURCEMANAGER_H
 #define RESOURCEMANAGER_H
 
-#include "drmdevice.h"
-#include "platform.h"
-
 #include <string.h>
+
+#include "drmdevice.h"
+#include "platform/platform.h"
 
 namespace android {
 

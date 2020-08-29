@@ -17,17 +17,17 @@
 #ifndef ANDROID_DRM_HWC_TWO_H_
 #define ANDROID_DRM_HWC_TWO_H_
 
-#include "drmdisplaycompositor.h"
-#include "drmhwcomposer.h"
-#include "platform.h"
-#include "resourcemanager.h"
-#include "vsyncworker.h"
-
 #include <hardware/hwcomposer2.h>
-
 #include <math.h>
+
 #include <array>
 #include <map>
+
+#include "compositor/drmdisplaycompositor.h"
+#include "drm/resourcemanager.h"
+#include "drm/vsyncworker.h"
+#include "drmhwcomposer.h"
+#include "platform/platform.h"
 
 namespace android {
 

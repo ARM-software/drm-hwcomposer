@@ -17,12 +17,13 @@
 #ifndef ANDROID_DRM_ENCODER_H_
 #define ANDROID_DRM_ENCODER_H_
 
-#include "drmcrtc.h"
-
 #include <stdint.h>
 #include <xf86drmMode.h>
+
 #include <set>
 #include <vector>
+
+#include "drmcrtc.h"
 
 namespace android {
 

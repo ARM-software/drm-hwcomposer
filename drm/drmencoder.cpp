@@ -15,7 +15,6 @@
  */
 
 #include "drmencoder.h"
-#include "drmcrtc.h"
 #include "drmdevice.h"
 
 #include <stdint.h>

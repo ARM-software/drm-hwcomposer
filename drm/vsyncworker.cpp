@@ -17,16 +17,12 @@
 #define LOG_TAG "hwc-vsync-worker"
 
 #include "vsyncworker.h"
-#include "drmdevice.h"
-#include "worker.h"
 
 #include <stdlib.h>
 #include <time.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <map>
 
-#include <hardware/hardware.h>
 #include <log/log.h>
 
 namespace android {

@@ -17,7 +17,6 @@
 #ifndef ANDROID_PLATFORM_HISI_H_
 #define ANDROID_PLATFORM_HISI_H_
 
-#include "drmdevice.h"
 #include "platform.h"
 #include "platformdrmgeneric.h"
 

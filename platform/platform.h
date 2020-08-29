@@ -17,14 +17,14 @@
 #ifndef ANDROID_DRM_PLATFORM_H_
 #define ANDROID_DRM_PLATFORM_H_
 
-#include "drmdisplaycomposition.h"
-#include "drmhwcomposer.h"
-
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
 
 #include <map>
 #include <vector>
+
+#include "compositor/drmdisplaycomposition.h"
+#include "drmhwcomposer.h"
 
 namespace android {
 

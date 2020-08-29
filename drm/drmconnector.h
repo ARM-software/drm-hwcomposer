@@ -17,14 +17,15 @@
 #ifndef ANDROID_DRM_CONNECTOR_H_
 #define ANDROID_DRM_CONNECTOR_H_
 
+#include <stdint.h>
+#include <xf86drmMode.h>
+
+#include <string>
+#include <vector>
+
 #include "drmencoder.h"
 #include "drmmode.h"
 #include "drmproperty.h"
-
-#include <stdint.h>
-#include <xf86drmMode.h>
-#include <string>
-#include <vector>
 
 namespace android {
 

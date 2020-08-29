@@ -17,11 +17,6 @@
 #define LOG_TAG "hwc-drm-device"
 
 #include "drmdevice.h"
-#include "drmconnector.h"
-#include "drmcrtc.h"
-#include "drmencoder.h"
-#include "drmeventlistener.h"
-#include "drmplane.h"
 
 #include <errno.h>
 #include <fcntl.h>

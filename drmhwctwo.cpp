@@ -18,19 +18,17 @@
 #define LOG_TAG "hwc-drm-two"
 
 #include "drmhwctwo.h"
-#include "backendmanager.h"
-#include "drmdisplaycomposition.h"
-#include "drmhwcomposer.h"
-#include "platform.h"
-#include "vsyncworker.h"
-
-#include <inttypes.h>
-#include <string>
 
 #include <cutils/properties.h>
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer2.h>
+#include <inttypes.h>
 #include <log/log.h>
+
+#include <string>
+
+#include "backend/backendmanager.h"
+#include "compositor/drmdisplaycomposition.h"
 
 namespace android {
 

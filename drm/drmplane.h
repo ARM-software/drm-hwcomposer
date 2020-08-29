@@ -17,12 +17,13 @@
 #ifndef ANDROID_DRM_PLANE_H_
 #define ANDROID_DRM_PLANE_H_
 
-#include "drmcrtc.h"
-#include "drmproperty.h"
-
 #include <stdint.h>
 #include <xf86drmMode.h>
+
 #include <vector>
+
+#include "drmcrtc.h"
+#include "drmproperty.h"
 
 namespace android {
 

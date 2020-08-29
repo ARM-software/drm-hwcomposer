@@ -24,7 +24,6 @@
 #include <cinttypes>
 
 #include <log/log.h>
-#include <xf86drmMode.h>
 
 namespace android {
 

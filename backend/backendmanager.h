@@ -17,13 +17,13 @@
 #ifndef ANDROID_BACKEND_MANAGER_H
 #define ANDROID_BACKEND_MANAGER_H
 
-#include "backend.h"
-#include "drmhwctwo.h"
-
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
+
+#include "backend.h"
+#include "drmhwctwo.h"
 
 #define REGISTER_BACKEND(name_str_, backend_)                               \
   static int                                                                \

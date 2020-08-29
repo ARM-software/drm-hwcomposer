@@ -17,14 +17,14 @@
 #ifndef ANDROID_EVENT_WORKER_H_
 #define ANDROID_EVENT_WORKER_H_
 
-#include "drmdevice.h"
-#include "worker.h"
-
-#include <stdint.h>
-#include <map>
-
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
+#include <stdint.h>
+
+#include <map>
+
+#include "drmdevice.h"
+#include "utils/worker.h"
 
 namespace android {
 

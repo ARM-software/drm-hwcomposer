@@ -17,8 +17,6 @@
 #define LOG_TAG "hwc-backend"
 
 #include "backendmanager.h"
-#include "backend.h"
-#include "drmhwctwo.h"
 
 #include <cutils/properties.h>
 #include <log/log.h>

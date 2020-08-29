@@ -17,15 +17,11 @@
 #define LOG_TAG "hwc-platform-meson"
 
 #include "platformmeson.h"
-#include "drmdevice.h"
-#include "platform.h"
 
-#include <stdatomic.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <cinttypes>
 
-#include <hardware/gralloc.h>
 #include <log/log.h>
 #include "gralloc_priv.h"
 

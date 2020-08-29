@@ -17,9 +17,10 @@
 #define LOG_TAG "hwc-platform"
 
 #include "platform.h"
-#include "drmdevice.h"
 
 #include <log/log.h>
+
+#include "drm/drmdevice.h"
 
 namespace android {
 

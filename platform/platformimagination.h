@@ -1,7 +1,6 @@
 #ifndef PLATFORMIMAGINATION_H
 #define PLATFORMIMAGINATION_H
 
-#include "drmdevice.h"
 #include "platform.h"
 #include "platformdrmgeneric.h"
 

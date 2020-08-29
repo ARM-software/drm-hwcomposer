@@ -17,15 +17,16 @@
 #ifndef ANDROID_DRM_H_
 #define ANDROID_DRM_H_
 
+#include <stdint.h>
+
+#include <tuple>
+
 #include "drmconnector.h"
 #include "drmcrtc.h"
 #include "drmencoder.h"
 #include "drmeventlistener.h"
 #include "drmplane.h"
-#include "platform.h"
-
-#include <stdint.h>
-#include <tuple>
+#include "platform/platform.h"
 
 namespace android {
 

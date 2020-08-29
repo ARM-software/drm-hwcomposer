@@ -20,7 +20,10 @@ cc_library_static {
 
     srcs: ["utils/worker.cpp"],
 
-    include_dirs: ["external/drm_hwcomposer/include"],
+    include_dirs: [
+        "external/drm_hwcomposer/include",
+        "external/drm_hwcomposer",
+    ],
 
     cflags: [
         "-Wall",
@@ -47,7 +50,10 @@ cc_defaults {
         "libutils",
     ],
 
-    include_dirs: ["external/drm_hwcomposer/include"],
+    include_dirs: [
+        "external/drm_hwcomposer/include",
+        "external/drm_hwcomposer",
+    ],
 
     static_libs: ["libdrmhwc_utils"],
 

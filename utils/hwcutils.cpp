@@ -17,11 +17,11 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #define LOG_TAG "hwc-drm-utils"
 
-#include "drmhwcomposer.h"
-#include "platform.h"
-
 #include <log/log.h>
 #include <ui/GraphicBufferMapper.h>
+
+#include "drmhwcomposer.h"
+#include "platform/platform.h"
 
 #define UNUSED(x) (void)(x)
 
