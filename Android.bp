@@ -18,7 +18,7 @@
 cc_library_static {
     name: "libdrmhwc_utils",
 
-    srcs: ["utils/worker.cpp"],
+    srcs: ["utils/Worker.cpp"],
 
     include_dirs: [
         "external/drm_hwcomposer/include",
@@ -80,31 +80,31 @@ cc_library_static {
     name: "drm_hwcomposer",
     defaults: ["hwcomposer.drm_defaults"],
     srcs: [
-        "drmhwctwo.cpp",
+        "DrmHwcTwo.cpp",
 
-        "compositor/drmdisplaycomposition.cpp",
-        "compositor/drmdisplaycompositor.cpp",
+        "compositor/DrmDisplayComposition.cpp",
+        "compositor/DrmDisplayCompositor.cpp",
 
-        "drm/drmconnector.cpp",
-        "drm/drmcrtc.cpp",
-        "drm/drmdevice.cpp",
-        "drm/drmencoder.cpp",
-        "drm/drmeventlistener.cpp",
-        "drm/drmmode.cpp",
-        "drm/drmplane.cpp",
-        "drm/drmproperty.cpp",
-        "drm/resourcemanager.cpp",
-        "drm/vsyncworker.cpp",
+        "drm/DrmConnector.cpp",
+        "drm/DrmCrtc.cpp",
+        "drm/DrmDevice.cpp",
+        "drm/DrmEncoder.cpp",
+        "drm/DrmEventListener.cpp",
+        "drm/DrmMode.cpp",
+        "drm/DrmPlane.cpp",
+        "drm/DrmProperty.cpp",
+        "drm/ResourceManager.cpp",
+        "drm/VSyncWorker.cpp",
 
         "platform/platform.cpp",
 
         "utils/autolock.cpp",
         "utils/hwcutils.cpp",
 
-        "backend/backendmanager.cpp",
-        "backend/backend.cpp",
-        "backend/backendclient.cpp",
-        "backend/backendrcardu.cpp",
+        "backend/BackendManager.cpp",
+        "backend/Backend.cpp",
+        "backend/BackendClient.cpp",
+        "backend/BackendRCarDu.cpp",
     ],
 }
 

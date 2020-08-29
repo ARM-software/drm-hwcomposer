@@ -22,7 +22,7 @@
 
 #include <map>
 
-#include "drm/drmdevice.h"
+#include "drm/DrmDevice.h"
 #include "platform.h"
 
 #ifndef DRM_FORMAT_INVALID

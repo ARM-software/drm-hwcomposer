@@ -20,7 +20,7 @@
 
 #include <log/log.h>
 
-#include "drm/drmdevice.h"
+#include "drm/DrmDevice.h"
 
 namespace android {
 

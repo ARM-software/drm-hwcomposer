@@ -23,7 +23,7 @@
 #include <map>
 #include <vector>
 
-#include "compositor/drmdisplaycomposition.h"
+#include "compositor/DrmDisplayComposition.h"
 #include "drmhwcomposer.h"
 
 namespace android {
