@@ -152,42 +152,4 @@ int HisiImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   return 0;
 }
 
-class PlanStageHiSi : public Planner::PlanStage {
- public:
-  int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-                      std::vector<DrmPlane *> *planes) {
-    int layers_added = 0;
-    // Fill up as many DRM planes as we can with buffers that have HW_FB usage.
-    // Buffers without HW_FB should have been filtered out with
-    // CanImportBuffer(), if we meet one here, just skip it.
-    for (auto i = layers.begin(); i != layers.end(); i = layers.erase(i)) {
-      if (!(i->second->gralloc_buffer_usage & GRALLOC_USAGE_HW_FB))
-        continue;
-
-      int ret = Emplace(composition, planes, DrmCompositionPlane::Type::kLayer,
-                        crtc, std::make_pair(i->first, i->second));
-      layers_added++;
-      // We don't have any planes left
-      if (ret == -ENOENT)
-        break;
-      else if (ret) {
-        ALOGE("Failed to emplace layer %zu, dropping it", i->first);
-        return ret;
-      }
-    }
-    // If we didn't emplace anything, return an error to ensure we force client
-    // compositing.
-    if (!layers_added)
-      return -EINVAL;
-
-    return 0;
-  }
-};
-
-std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
-  std::unique_ptr<Planner> planner(new Planner);
-  planner->AddStage<PlanStageHiSi>();
-  return planner;
-}
 }  // namespace android

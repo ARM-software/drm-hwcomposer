@@ -354,13 +354,11 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
   return true;
 }
 
-#ifdef USE_DRM_GENERIC_IMPORTER
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   std::unique_ptr<Planner> planner(new Planner);
   planner->AddStage<PlanStageGreedy>();
   return planner;
 }
-#endif
 
 int DrmGenericImporter::ImportHandle(uint32_t gem_handle) {
   gem_refcount_[gem_handle]++;
