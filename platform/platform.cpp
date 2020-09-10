@@ -78,6 +78,13 @@ int Planner::PlanStage::ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer) {
       ALOGE("Expected a valid blend mode on plane %d", plane->id());
   }
 
+  uint32_t format = layer->buffer->format;
+  if (!plane->IsFormatSupported(format)) {
+    ALOGE("Plane %d does not supports %c%c%c%c format", plane->id(), format,
+          format >> 8, format >> 16, format >> 24);
+    return -EINVAL;
+  }
+
   return ret;
 }
 
