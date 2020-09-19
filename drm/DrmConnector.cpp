@@ -103,7 +103,7 @@ int DrmConnector::GetEdidBlob(drmModePropertyBlobPtr &blob) {
   }
 
   blob = drmModeGetPropertyBlob(drm_->fd(), blob_id);
-  return 0;
+  return !blob;
 }
 
 uint32_t DrmConnector::id() const {
