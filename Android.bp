@@ -153,3 +153,12 @@ filegroup {
         "platform/platformmeson.cpp",
     ],
 }
+
+// Used by hwcomposer.drm_mediatek
+filegroup {
+    name: "drm_hwcomposer_platformmediatek",
+    srcs: [
+        "platform/platformdrmgeneric.cpp",
+        "platform/platformmediatek.cpp",
+    ],
+}
