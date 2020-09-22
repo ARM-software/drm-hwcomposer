@@ -25,6 +25,7 @@ namespace android {
 
 const std::vector<std::string> BackendManager::client_devices_ = {
     "kirin",
+    "mediatek-drm",
 };
 
 BackendManager &BackendManager::GetInstance() {
