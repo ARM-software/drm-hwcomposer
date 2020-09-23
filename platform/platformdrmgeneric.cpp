@@ -238,7 +238,11 @@ int DrmGenericImporter::ConvertBoInfo(buffer_handle_t handle,
   bo->hal_format = gr_handle->format;
 
 #if GRALLOC_HANDLE_VERSION < 4
-#warning libdrm >= v2.4.97 is required to support modifiers
+  static std::once_flag once;
+  std::call_once(once, []() {
+    ALOGE(
+        "libdrm < v2.4.97 has broken gralloc_handle structure. Please update.");
+  });
 #endif
 #if GRALLOC_HANDLE_VERSION == 4
   bo->modifiers[0] = gr_handle->modifier;
