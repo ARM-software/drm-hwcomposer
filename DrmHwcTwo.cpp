@@ -32,22 +32,6 @@
 
 namespace android {
 
-class DrmVsyncCallback : public VsyncCallback {
- public:
-  DrmVsyncCallback(hwc2_callback_data_t data, hwc2_function_pointer_t hook)
-      : data_(data), hook_(hook) {
-  }
-
-  void Callback(int display, int64_t timestamp) {
-    auto hook = reinterpret_cast<HWC2_PFN_VSYNC>(hook_);
-    hook(data_, display, timestamp);
-  }
-
- private:
-  hwc2_callback_data_t data_;
-  hwc2_function_pointer_t hook_;
-};
-
 DrmHwcTwo::DrmHwcTwo() {
   common.tag = HARDWARE_DEVICE_TAG;
   common.version = HWC_DEVICE_API_VERSION_2_0;
@@ -194,17 +178,10 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
                                         hwc2_callback_data_t data,
                                         hwc2_function_pointer_t function) {
   supported(__func__);
-  auto callback = static_cast<HWC2::Callback>(descriptor);
 
-  if (!function) {
-    callbacks_.erase(callback);
-    return HWC2::Error::None;
-  }
-
-  callbacks_.emplace(callback, HwcCallback(data, function));
-
-  switch (callback) {
+  switch (static_cast<HWC2::Callback>(descriptor)) {
     case HWC2::Callback::Hotplug: {
+      SetHotplugCallback(data, function);
       auto &drmDevices = resource_manager_.getDrmDevices();
       for (auto &device : drmDevices)
         HandleInitialHotplugState(device.get());
@@ -317,21 +294,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ChosePreferredConfig() {
   return SetActiveConfig(connector_->get_preferred_mode_id());
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
+void DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
     hwc2_callback_data_t data, hwc2_function_pointer_t func) {
   supported(__func__);
-  auto callback = std::make_shared<DrmVsyncCallback>(data, func);
-  vsync_worker_.RegisterCallback(std::move(callback));
-  return HWC2::Error::None;
+  vsync_worker_.RegisterClientCallback(data, func);
 }
 
 void DrmHwcTwo::HwcDisplay::RegisterRefreshCallback(
     hwc2_callback_data_t data, hwc2_function_pointer_t func) {
   supported(__func__);
-  auto hook = reinterpret_cast<HWC2_PFN_REFRESH>(func);
-  compositor_.SetRefreshCallback([data, hook](int display) {
-    hook(data, static_cast<hwc2_display_t>(display));
-  });
+  compositor_.SetRefreshCallback(data, func);
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
@@ -1110,14 +1082,13 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(DrmHwcLayer *layer) {
 }
 
 void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
-  auto cb = callbacks_.find(HWC2::Callback::Hotplug);
-  if (cb == callbacks_.end())
-    return;
+  const std::lock_guard<std::mutex> lock(hotplug_callback_lock);
 
-  auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(cb->second.func);
-  hotplug(cb->second.data, displayid,
-          (state == DRM_MODE_CONNECTED ? HWC2_CONNECTION_CONNECTED
-                                       : HWC2_CONNECTION_DISCONNECTED));
+  if (hotplug_callback_hook_ && hotplug_callback_data_)
+    hotplug_callback_hook_(hotplug_callback_data_, displayid,
+                           state == DRM_MODE_CONNECTED
+                               ? HWC2_CONNECTION_CONNECTED
+                               : HWC2_CONNECTION_DISCONNECTED);
 }
 
 void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {

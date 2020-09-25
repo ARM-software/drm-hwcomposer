@@ -59,9 +59,15 @@ class DrmDisplayCompositor {
 
   int Init(ResourceManager *resource_manager, int display);
 
-  template <typename Fn>
-  void SetRefreshCallback(Fn &&refresh_cb) {
-    refresh_display_cb_ = std::forward<Fn>(refresh_cb);
+  hwc2_callback_data_t refresh_callback_data_ = NULL;
+  HWC2_PFN_REFRESH refresh_callback_hook_ = NULL;
+  std::mutex refresh_callback_lock;
+
+  void SetRefreshCallback(hwc2_callback_data_t data,
+                          hwc2_function_pointer_t hook) {
+    const std::lock_guard<std::mutex> lock(refresh_callback_lock);
+    refresh_callback_data_ = data;
+    refresh_callback_hook_ = reinterpret_cast<HWC2_PFN_REFRESH>(hook);
   }
 
   std::unique_ptr<DrmDisplayComposition> CreateComposition() const;

@@ -50,6 +50,14 @@ void VSyncWorker::RegisterCallback(std::shared_ptr<VsyncCallback> callback) {
   Unlock();
 }
 
+void VSyncWorker::RegisterClientCallback(hwc2_callback_data_t data,
+                                         hwc2_function_pointer_t hook) {
+  Lock();
+  vsync_callback_data_ = data;
+  vsync_callback_hook_ = reinterpret_cast<HWC2_PFN_VSYNC>(hook);
+  Unlock();
+}
+
 void VSyncWorker::VSyncControl(bool enabled) {
   Lock();
   enabled_ = enabled;
@@ -151,37 +159,17 @@ void VSyncWorker::Routine() {
                 (int64_t)vblank.reply.tval_usec * 1000;
   }
 
-  /*
-   * VSync could be disabled during routine execution so it could potentially
-   * lead to crash since callback's inner hook could be invalid anymore. We have
-   * no control over lifetime of this hook, therefore we can't rely that it'll
-   * be valid after vsync disabling.
-   *
-   * Blocking VSyncControl to wait until routine
-   * will finish execution is logically correct way to fix this issue, but it
-   * creates visible lags and stutters, so we have to resort to other ways of
-   * mitigating this issue.
-   *
-   * Doing check before attempt to invoke callback drastically shortens the
-   * window when such situation could happen and that allows us to practically
-   * avoid this issue.
-   *
-   * Please note that issue described below is different one and it is related
-   * to RegisterCallback, not to disabling vsync via VSyncControl.
-   */
   if (!enabled_)
     return;
-  /*
-   * There's a race here where a change in callback_ will not take effect until
-   * the next subsequent requested vsync. This is unavoidable since we can't
-   * call the vsync hook while holding the thread lock.
-   *
-   * We could shorten the race window by caching callback_ right before calling
-   * the hook. However, in practice, callback_ is only updated once, so it's not
-   * worth the overhead.
-   */
+
   if (callback)
     callback->Callback(display, timestamp);
+
+  Lock();
+  if (enabled_ && vsync_callback_hook_ && vsync_callback_data_)
+    vsync_callback_hook_(vsync_callback_data_, display, timestamp);
+  Unlock();
+
   last_timestamp_ = timestamp;
 }
 }  // namespace android

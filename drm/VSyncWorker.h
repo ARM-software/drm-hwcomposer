@@ -19,6 +19,7 @@
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
+#include <hardware/hwcomposer2.h>
 #include <stdint.h>
 
 #include <map>
@@ -42,6 +43,8 @@ class VSyncWorker : public Worker {
 
   int Init(DrmDevice *drm, int display);
   void RegisterCallback(std::shared_ptr<VsyncCallback> callback);
+  void RegisterClientCallback(hwc2_callback_data_t data,
+                              hwc2_function_pointer_t hook);
 
   void VSyncControl(bool enabled);
 
@@ -62,6 +65,9 @@ class VSyncWorker : public Worker {
   int display_;
   std::atomic_bool enabled_;
   int64_t last_timestamp_;
+
+  hwc2_callback_data_t vsync_callback_data_ = NULL;
+  HWC2_PFN_VSYNC vsync_callback_hook_ = NULL;
 };
 }  // namespace android
 

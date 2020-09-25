@@ -813,7 +813,9 @@ bool DrmDisplayCompositor::IsFlatteningNeeded() const {
 }
 
 int DrmDisplayCompositor::FlattenOnClient() {
-  if (refresh_display_cb_) {
+  const std::lock_guard<std::mutex> lock(refresh_callback_lock);
+
+  if (refresh_callback_hook_ && refresh_callback_data_) {
     {
       AutoLock lock(&lock_, __func__);
       if (!IsFlatteningNeeded()) {
@@ -829,7 +831,7 @@ int DrmDisplayCompositor::FlattenOnClient() {
         "No writeback connector available, "
         "falling back to client composition");
     SetFlattening(FlatteningState::kClientRequested);
-    refresh_display_cb_(display_);
+    refresh_callback_hook_(refresh_callback_data_, display_);
     return 0;
   } else {
     ALOGV("No writeback connector available");
