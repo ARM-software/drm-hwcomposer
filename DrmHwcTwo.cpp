@@ -783,7 +783,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
   supported(__func__);
 
   if (mode != HAL_COLOR_MODE_NATIVE)
-    return HWC2::Error::BadParameter;
+    return HWC2::Error::Unsupported;
 
   color_mode_ = mode;
   return HWC2::Error::None;
@@ -950,10 +950,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetRenderIntents(
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetColorModeWithIntent(int32_t mode,
                                                           int32_t intent) {
+  if (intent < HAL_RENDER_INTENT_COLORIMETRIC ||
+      intent > HAL_RENDER_INTENT_TONE_MAP_ENHANCE)
+    return HWC2::Error::BadParameter;
+
+  if (mode < HAL_COLOR_MODE_NATIVE || mode > HAL_COLOR_MODE_BT2100_HLG)
+    return HWC2::Error::BadParameter;
+
   if (mode != HAL_COLOR_MODE_NATIVE)
-    return HWC2::Error::BadParameter;
+    return HWC2::Error::Unsupported;
+
   if (intent != HAL_RENDER_INTENT_COLORIMETRIC)
-    return HWC2::Error::BadParameter;
+    return HWC2::Error::Unsupported;
+
   color_mode_ = mode;
   return HWC2::Error::None;
 }
