@@ -44,17 +44,16 @@ class DrmGenericImporter : public Importer {
   int ImportHandle(uint32_t gem_handle);
   int ReleaseHandle(uint32_t gem_handle);
 
-  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
+  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override = 0;
 
   uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
   uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
-  bool GetYuvPlaneInfo(int num_fds, buffer_handle_t handle, hwc_drm_bo_t *bo);
 
  protected:
   DrmDevice *drm_;
+  const gralloc_module_t *gralloc_;
 
  private:
-  const gralloc_module_t *gralloc_;
 
   int CloseHandle(uint32_t gem_handle);
   std::map<uint32_t, int> gem_refcount_;

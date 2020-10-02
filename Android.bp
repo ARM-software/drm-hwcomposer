@@ -112,8 +112,8 @@ cc_library_shared {
     name: "hwcomposer.drm",
     defaults: ["hwcomposer.drm_defaults"],
     whole_static_libs: ["drm_hwcomposer"],
-    srcs: ["platform/platformdrmgeneric.cpp"],
-    cppflags: ["-DUSE_DRM_GENERIC_IMPORTER"],
+    srcs: ["platform/platformdrmgeneric.cpp",
+           "platform/platformlibdrm.cpp"],
 }
 
 cc_library_shared {
