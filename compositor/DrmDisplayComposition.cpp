@@ -27,8 +27,8 @@
 #include <unordered_set>
 
 #include "DrmDisplayCompositor.h"
+#include "Planner.h"
 #include "drm/DrmDevice.h"
-#include "platform/platform.h"
 
 namespace android {
 

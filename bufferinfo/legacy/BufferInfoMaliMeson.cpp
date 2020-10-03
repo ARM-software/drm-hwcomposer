@@ -14,36 +14,26 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "hwc-platform-meson"
+#define LOG_TAG "hwc-bufferinfo-mali-meson"
 
-#include "platformmeson.h"
-
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-#include <cinttypes>
+#include "BufferInfoMaliMeson.h"
 
 #include <log/log.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+
+#include <cinttypes>
+
 #include "gralloc_priv.h"
 
 namespace android {
 
-Importer *Importer::CreateInstance(DrmDevice *drm) {
-  MesonImporter *importer = new MesonImporter(drm);
-  if (!importer)
-    return NULL;
-
-  int ret = importer->Init();
-  if (ret) {
-    ALOGE("Failed to initialize the meson importer %d", ret);
-    delete importer;
-    return NULL;
-  }
-  return importer;
-}
+LEGACY_BUFFER_INFO_GETTER(BufferInfoMaliMeson);
 
 #if defined(MALI_GRALLOC_INTFMT_AFBC_BASIC) && \
     defined(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)
-uint64_t MesonImporter::ConvertGrallocFormatToDrmModifiers(uint64_t flags) {
+uint64_t BufferInfoMaliMeson::ConvertGrallocFormatToDrmModifiers(
+    uint64_t flags) {
   uint64_t features = 0UL;
 
   if (flags & MALI_GRALLOC_INTFMT_AFBC_BASIC) {
@@ -65,13 +55,14 @@ uint64_t MesonImporter::ConvertGrallocFormatToDrmModifiers(uint64_t flags) {
   return 0;
 }
 #else
-uint64_t MesonImporter::ConvertGrallocFormatToDrmModifiers(
+uint64_t BufferInfoMaliMeson::ConvertGrallocFormatToDrmModifiers(
     uint64_t /* flags */) {
   return 0;
 }
 #endif
 
-int MesonImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int BufferInfoMaliMeson::ConvertBoInfo(buffer_handle_t handle,
+                                       hwc_drm_bo_t *bo) {
   private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
       handle);
   if (!hnd)
@@ -84,7 +75,7 @@ int MesonImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   if (fmt == DRM_FORMAT_INVALID)
     return -EINVAL;
 
-  bo->modifiers[0] = MesonImporter::ConvertGrallocFormatToDrmModifiers(
+  bo->modifiers[0] = BufferInfoMaliMeson::ConvertGrallocFormatToDrmModifiers(
       hnd->internal_format);
 
   bo->width = hnd->width;

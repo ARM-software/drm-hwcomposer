@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PLATFORM_DRM_MINIGBM_H_
-#define ANDROID_PLATFORM_DRM_MINIGBM_H_
+#ifndef PLATFORMIMAGINATION_H
+#define PLATFORMIMAGINATION_H
 
-#include "platform.h"
-#include "platformdrmgeneric.h"
-
-#include <hardware/gralloc.h>
+#include "bufferinfo/BufferInfoGetter.h"
 
 namespace android {
 
-class DrmMinigbmImporter : public DrmGenericImporter {
+class BufferInfoMapperMetadata : public BufferInfoGetter {
  public:
-  using DrmGenericImporter::DrmGenericImporter;
-  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
-};
+  using BufferInfoGetter::BufferInfoGetter;
 
+  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
+
+  static BufferInfoGetter *CreateInstance();
+};
 }  // namespace android
 
-#endif
+#endif  // PLATFORMIMAGINATION_H

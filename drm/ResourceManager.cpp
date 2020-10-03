@@ -24,6 +24,8 @@
 
 #include <sstream>
 
+#include "bufferinfo/BufferInfoGetter.h"
+
 namespace android {
 
 ResourceManager::ResourceManager() : num_displays_(0), gralloc_(NULL) {
@@ -62,6 +64,11 @@ int ResourceManager::Init() {
   property_get("vendor.hwc.drm.scale_with_gpu", scale_with_gpu, "0");
   scale_with_gpu_ = bool(strncmp(scale_with_gpu, "0", 1));
 
+  if (!BufferInfoGetter::GetInstance()) {
+    ALOGE("Failed to initialize BufferInfoGetter");
+    return -EINVAL;
+  }
+
   return hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
                        (const hw_module_t **)&gralloc_);
 }
@@ -73,7 +80,7 @@ int ResourceManager::AddDrmDevice(std::string path) {
   if (ret)
     return ret;
   std::shared_ptr<Importer> importer;
-  importer.reset(Importer::CreateInstance(drm.get()));
+  importer.reset(new DrmGenericImporter(drm.get()));
   if (!importer) {
     ALOGE("Failed to create importer instance");
     return -ENODEV;

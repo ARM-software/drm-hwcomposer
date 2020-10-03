@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,39 +14,28 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "hwc-platform-hisi"
+#define LOG_TAG "hwc-bufferinfo-mali-hisi"
 
-#include "platformhisi.h"
-
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-#include <cinttypes>
+#include "BufferInfoMaliHisi.h"
 
 #include <log/log.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+
+#include <cinttypes>
+
 #include "gralloc_priv.h"
 
 #define MALI_ALIGN(value, base) (((value) + ((base)-1)) & ~((base)-1))
 
 namespace android {
 
-Importer *Importer::CreateInstance(DrmDevice *drm) {
-  HisiImporter *importer = new HisiImporter(drm);
-  if (!importer)
-    return NULL;
-
-  int ret = importer->Init();
-  if (ret) {
-    ALOGE("Failed to initialize the hisi importer %d", ret);
-    delete importer;
-    return NULL;
-  }
-  return importer;
-}
+LEGACY_BUFFER_INFO_GETTER(BufferInfoMaliHisi);
 
 #if defined(MALI_GRALLOC_INTFMT_AFBC_BASIC) && \
     defined(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)
-uint64_t HisiImporter::ConvertGrallocFormatToDrmModifiers(uint64_t flags,
-                                                          bool is_rgb) {
+uint64_t BufferInfoMaliHisi::ConvertGrallocFormatToDrmModifiers(uint64_t flags,
+                                                                bool is_rgb) {
   uint64_t features = 0UL;
 
   if (flags & MALI_GRALLOC_INTFMT_AFBC_BASIC)
@@ -71,29 +60,14 @@ uint64_t HisiImporter::ConvertGrallocFormatToDrmModifiers(uint64_t flags,
   return 0;
 }
 #else
-uint64_t HisiImporter::ConvertGrallocFormatToDrmModifiers(uint64_t /* flags */,
-                                                          bool /* is_rgb */) {
+uint64_t BufferInfoMaliHisi::ConvertGrallocFormatToDrmModifiers(
+    uint64_t /* flags */, bool /* is_rgb */) {
   return 0;
 }
 #endif
 
-bool HisiImporter::IsDrmFormatRgb(uint32_t drm_format) {
-  switch (drm_format) {
-    case DRM_FORMAT_ARGB8888:
-    case DRM_FORMAT_XBGR8888:
-    case DRM_FORMAT_ABGR8888:
-    case DRM_FORMAT_BGR888:
-    case DRM_FORMAT_BGR565:
-      return true;
-    case DRM_FORMAT_YVU420:
-      return false;
-    default:
-      ALOGV("Unsupported format %u assuming rgb?", drm_format);
-      return true;
-  }
-}
-
-int HisiImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int BufferInfoMaliHisi::ConvertBoInfo(buffer_handle_t handle,
+                                      hwc_drm_bo_t *bo) {
   bool is_rgb;
 
   private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
@@ -108,9 +82,9 @@ int HisiImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   if (fmt == DRM_FORMAT_INVALID)
     return -EINVAL;
 
-  is_rgb = HisiImporter::IsDrmFormatRgb(fmt);
-  bo->modifiers[0] = HisiImporter::
-      ConvertGrallocFormatToDrmModifiers(hnd->internal_format, is_rgb);
+  is_rgb = IsDrmFormatRgb(fmt);
+  bo->modifiers[0] = ConvertGrallocFormatToDrmModifiers(hnd->internal_format,
+                                                        is_rgb);
 
   bo->width = hnd->width;
   bo->height = hnd->height;

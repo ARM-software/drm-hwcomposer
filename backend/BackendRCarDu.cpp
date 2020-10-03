@@ -17,6 +17,7 @@
 #include "BackendRCarDu.h"
 
 #include "BackendManager.h"
+#include "bufferinfo/BufferInfoGetter.h"
 #include "drm_fourcc.h"
 
 namespace android {
@@ -25,7 +26,8 @@ bool BackendRCarDu::IsClientLayer(DrmHwcTwo::HwcDisplay *display,
                                   DrmHwcTwo::HwcLayer *layer) {
   hwc_drm_bo_t bo;
 
-  int ret = display->importer()->ConvertBoInfo(layer->buffer(), &bo);
+  int ret = BufferInfoGetter::GetInstance()->ConvertBoInfo(layer->buffer(),
+                                                           &bo);
   if (ret)
     return true;
 

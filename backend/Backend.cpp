@@ -17,6 +17,7 @@
 #include "Backend.h"
 
 #include "BackendManager.h"
+#include "bufferinfo/BufferInfoGetter.h"
 
 namespace android {
 
@@ -125,7 +126,7 @@ std::tuple<int, int> Backend::GetClientLayers(
 bool Backend::IsClientLayer(DrmHwcTwo::HwcDisplay *display,
                             DrmHwcTwo::HwcLayer *layer) {
   return !display->HardwareSupportsLayerType(layer->sf_type()) ||
-         !display->importer()->CanImportBuffer(layer->buffer()) ||
+         !BufferInfoGetter::GetInstance()->IsHandleUsable(layer->buffer()) ||
          display->color_transform_hint() != HAL_COLOR_TRANSFORM_IDENTITY ||
          (layer->RequireScalingOrPhasing() &&
           display->resource_manager()->ForcedScalingWithGpu());

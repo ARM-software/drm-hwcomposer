@@ -20,8 +20,9 @@
 #include <log/log.h>
 #include <ui/GraphicBufferMapper.h>
 
+#include "bufferinfo/BufferInfoGetter.h"
+#include "drm/DrmGenericImporter.h"
 #include "drmhwcomposer.h"
-#include "platform/platform.h"
 
 #define UNUSED(x) (void)(x)
 
@@ -44,9 +45,11 @@ void DrmHwcBuffer::Clear() {
 }
 
 int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
-  hwc_drm_bo tmp_bo;
+  hwc_drm_bo tmp_bo{};
 
-  int ret = importer->ImportBuffer(handle, &tmp_bo);
+  BufferInfoGetter::GetInstance()->ConvertBoInfo(handle, &tmp_bo);
+
+  int ret = importer->ImportBuffer(&tmp_bo);
   if (ret)
     return ret;
 

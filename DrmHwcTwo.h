@@ -24,10 +24,11 @@
 #include <map>
 
 #include "compositor/DrmDisplayCompositor.h"
+#include "compositor/Planner.h"
+#include "drm/DrmGenericImporter.h"
 #include "drm/ResourceManager.h"
 #include "drm/VSyncWorker.h"
 #include "drmhwcomposer.h"
-#include "platform/platform.h"
 
 namespace android {
 

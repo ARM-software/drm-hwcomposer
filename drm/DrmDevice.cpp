@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <array>
 #include <cinttypes>
+#include <sstream>
 #include <string>
 
 static void trim_left(std::string &str) {

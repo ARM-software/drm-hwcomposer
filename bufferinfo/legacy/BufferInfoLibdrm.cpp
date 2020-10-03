@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "hwc-platform-libdrm"
+#define LOG_TAG "hwc-bufferinfo-libdrm"
 
-#include "platformlibdrm.h"
+#include "BufferInfoLibdrm.h"
 
 #include <cutils/properties.h>
 #include <gralloc_handle.h>
@@ -27,19 +27,7 @@
 
 namespace android {
 
-Importer *Importer::CreateInstance(DrmDevice *drm) {
-  DrmGenericImporter *importer = new LibdrmImporter(drm);
-  if (!importer)
-    return NULL;
-
-  int ret = importer->Init();
-  if (ret) {
-    ALOGE("Failed to initialize the libdrm importer %d", ret);
-    delete importer;
-    return NULL;
-  }
-  return importer;
-}
+LEGACY_BUFFER_INFO_GETTER(BufferInfoLibdrm);
 
 enum chroma_order {
   YCbCr,
@@ -94,8 +82,8 @@ static bool is_yuv(int native) {
   return false;
 }
 
-bool LibdrmImporter::GetYuvPlaneInfo(int num_fds, buffer_handle_t handle,
-                                     hwc_drm_bo_t *bo) {
+bool BufferInfoLibdrm::GetYuvPlaneInfo(int num_fds, buffer_handle_t handle,
+                                       hwc_drm_bo_t *bo) {
   struct android_ycbcr ycbcr;
   enum chroma_order chroma_order;
   int ret;
@@ -165,7 +153,7 @@ bool LibdrmImporter::GetYuvPlaneInfo(int num_fds, buffer_handle_t handle,
   return true;
 }
 
-int LibdrmImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int BufferInfoLibdrm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   gralloc_handle_t *gr_handle = gralloc_handle(handle);
   if (!gr_handle)
     return -EINVAL;

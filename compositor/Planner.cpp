@@ -16,13 +16,19 @@
 
 #define LOG_TAG "hwc-platform"
 
-#include "platform.h"
+#include "Planner.h"
 
 #include <log/log.h>
 
 #include "drm/DrmDevice.h"
 
 namespace android {
+
+std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
+  std::unique_ptr<Planner> planner(new Planner);
+  planner->AddStage<PlanStageGreedy>();
+  return planner;
+}
 
 std::vector<DrmPlane *> Planner::GetUsablePlanes(
     DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,

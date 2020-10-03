@@ -20,7 +20,7 @@
 #include <string.h>
 
 #include "DrmDevice.h"
-#include "platform/platform.h"
+#include "DrmGenericImporter.h"
 
 namespace android {
 

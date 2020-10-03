@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PLATFORM_MTK_H_
-#define ANDROID_PLATFORM_MTK_H_
+#ifndef BUFFERINFOMALIHISI_H_
+#define BUFFERINFOMALIHISI_H_
 
 #include <hardware/gralloc.h>
-#include <stdatomic.h>
 
-#include "platform.h"
-#include "platformdrmgeneric.h"
+#include "bufferinfo/BufferInfoGetter.h"
 
 namespace android {
 
-class MediatekImporter : public DrmGenericImporter {
+class BufferInfoMaliHisi : public LegacyBufferInfoGetter {
  public:
-  using DrmGenericImporter::DrmGenericImporter;
+  using LegacyBufferInfoGetter::LegacyBufferInfoGetter;
 
   int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
+
+ private:
+  uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags, bool is_rgb);
 };
 }  // namespace android
 

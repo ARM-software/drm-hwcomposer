@@ -82,21 +82,24 @@ cc_library_static {
     srcs: [
         "DrmHwcTwo.cpp",
 
+        "bufferinfo/BufferInfoGetter.cpp",
+        "bufferinfo/BufferInfoMapperMetadata.cpp",
+
         "compositor/DrmDisplayComposition.cpp",
         "compositor/DrmDisplayCompositor.cpp",
+        "compositor/Planner.cpp",
 
         "drm/DrmConnector.cpp",
         "drm/DrmCrtc.cpp",
         "drm/DrmDevice.cpp",
         "drm/DrmEncoder.cpp",
         "drm/DrmEventListener.cpp",
+        "drm/DrmGenericImporter.cpp",
         "drm/DrmMode.cpp",
         "drm/DrmPlane.cpp",
         "drm/DrmProperty.cpp",
         "drm/ResourceManager.cpp",
         "drm/VSyncWorker.cpp",
-
-        "platform/platform.cpp",
 
         "utils/autolock.cpp",
         "utils/hwcutils.cpp",
@@ -112,53 +115,37 @@ cc_library_shared {
     name: "hwcomposer.drm",
     defaults: ["hwcomposer.drm_defaults"],
     whole_static_libs: ["drm_hwcomposer"],
-    srcs: ["platform/platformdrmgeneric.cpp",
-           "platform/platformlibdrm.cpp"],
+    srcs: ["bufferinfo/legacy/BufferInfoLibdrm.cpp"],
 }
 
 cc_library_shared {
     name: "hwcomposer.drm_minigbm",
     defaults: ["hwcomposer.drm_defaults"],
     whole_static_libs: ["drm_hwcomposer"],
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformminigbm.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMinigbm.cpp"],
     include_dirs: ["external/minigbm/cros_gralloc"],
 }
 
 // Used by hwcomposer.drm_imagination
 filegroup {
     name: "drm_hwcomposer_platformimagination",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformimagination.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoImagination.cpp"],
 }
 
 // Used by hwcomposer.drm_hikey and hwcomposer.drm_hikey960
 filegroup {
     name: "drm_hwcomposer_platformhisi",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformhisi.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMaliHisi.cpp"],
 }
 
 // Used by hwcomposer.drm_meson
 filegroup {
     name: "drm_hwcomposer_platformmeson",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformmeson.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMaliMeson.cpp"],
 }
 
 // Used by hwcomposer.drm_mediatek
 filegroup {
     name: "drm_hwcomposer_platformmediatek",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformmediatek.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMaliMediatek.cpp"],
 }

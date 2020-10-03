@@ -27,6 +27,7 @@
 
 #include "DrmDisplayComposition.h"
 #include "DrmFramebuffer.h"
+#include "Planner.h"
 #include "drm/ResourceManager.h"
 #include "drm/VSyncWorker.h"
 #include "drmhwcomposer.h"

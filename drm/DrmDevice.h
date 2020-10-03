@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <tuple>
 
 #include "DrmConnector.h"
@@ -26,7 +27,6 @@
 #include "DrmEncoder.h"
 #include "DrmEventListener.h"
 #include "DrmPlane.h"
-#include "platform/platform.h"
 
 namespace android {
 

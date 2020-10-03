@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,29 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PLATFORM_HISI_H_
-#define ANDROID_PLATFORM_HISI_H_
-
-#include "platform.h"
-#include "platformdrmgeneric.h"
-
-#include <stdatomic.h>
+#ifndef BUFFERINFOLIBDRM_H_
+#define BUFFERINFOLIBDRM_H_
 
 #include <hardware/gralloc.h>
 
+#include "bufferinfo/BufferInfoGetter.h"
+
 namespace android {
 
-class HisiImporter : public DrmGenericImporter {
+class BufferInfoLibdrm : public LegacyBufferInfoGetter {
  public:
-  using DrmGenericImporter::DrmGenericImporter;
-
+  using LegacyBufferInfoGetter::LegacyBufferInfoGetter;
   int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
 
  private:
-  uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags, bool is_rgb);
-
-  bool IsDrmFormatRgb(uint32_t drm_format);
+  bool GetYuvPlaneInfo(int num_fds, buffer_handle_t handle, hwc_drm_bo_t *bo);
 };
+
 }  // namespace android
 
 #endif

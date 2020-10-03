@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "hwc-platform-mediatek"
+#define LOG_TAG "hwc-bufferinfo-mali-mediatek"
 
-#include "platformmediatek.h"
+#include "BufferInfoMaliMediatek.h"
 
 #include <hardware/gralloc.h>
 #include <log/log.h>
@@ -27,25 +27,13 @@
 #include <cinttypes>
 
 #include "gralloc_priv.h"
-#include "platform.h"
 
 namespace android {
 
-Importer *Importer::CreateInstance(DrmDevice *drm) {
-  MediatekImporter *importer = new MediatekImporter(drm);
-  if (!importer)
-    return NULL;
+LEGACY_BUFFER_INFO_GETTER(BufferInfoMaliMediatek);
 
-  int ret = importer->Init();
-  if (ret) {
-    ALOGE("Failed to initialize the mediatek importer %d", ret);
-    delete importer;
-    return NULL;
-  }
-  return importer;
-}
-
-int MediatekImporter::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+int BufferInfoMaliMediatek::ConvertBoInfo(buffer_handle_t handle,
+                                          hwc_drm_bo_t *bo) {
   private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
       handle);
   if (!hnd)

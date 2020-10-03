@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 #define LOG_TAG "hwc-platform-drm-generic"
 
-#include "platformdrmgeneric.h"
-
-#include <xf86drm.h>
-#include <xf86drmMode.h>
+#include "DrmGenericImporter.h"
 
 #include <cutils/properties.h>
 #include <gralloc_handle.h>
 #include <hardware/gralloc.h>
 #include <log/log.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
 
 namespace android {
 
@@ -34,66 +33,9 @@ DrmGenericImporter::DrmGenericImporter(DrmDevice *drm) : drm_(drm) {
 DrmGenericImporter::~DrmGenericImporter() {
 }
 
-int DrmGenericImporter::Init() {
-  int ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                          (const hw_module_t **)&gralloc_);
-  if (ret) {
-    ALOGE("Failed to open gralloc module");
-    return ret;
-  }
-
-  ALOGI("Using %s gralloc module: %s\n", gralloc_->common.name,
-        gralloc_->common.author);
-
-  return 0;
-}
-
-uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
-  switch (hal_format) {
-    case HAL_PIXEL_FORMAT_RGB_888:
-      return DRM_FORMAT_BGR888;
-    case HAL_PIXEL_FORMAT_BGRA_8888:
-      return DRM_FORMAT_ARGB8888;
-    case HAL_PIXEL_FORMAT_RGBX_8888:
-      return DRM_FORMAT_XBGR8888;
-    case HAL_PIXEL_FORMAT_RGBA_8888:
-      return DRM_FORMAT_ABGR8888;
-    case HAL_PIXEL_FORMAT_RGB_565:
-      return DRM_FORMAT_BGR565;
-    case HAL_PIXEL_FORMAT_YV12:
-      return DRM_FORMAT_YVU420;
-    default:
-      ALOGE("Cannot convert hal format to drm format %u", hal_format);
-      return DRM_FORMAT_INVALID;
-  }
-}
-
-uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
-  switch (drm_format) {
-    case DRM_FORMAT_ARGB8888:
-    case DRM_FORMAT_XBGR8888:
-    case DRM_FORMAT_ABGR8888:
-      return 32;
-    case DRM_FORMAT_BGR888:
-      return 24;
-    case DRM_FORMAT_BGR565:
-      return 16;
-    case DRM_FORMAT_YVU420:
-      return 12;
-    default:
-      ALOGE("Cannot convert hal format %u to bpp (returning 32)", drm_format);
-      return 32;
-  }
-}
-
-int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  memset(bo, 0, sizeof(hwc_drm_bo_t));
-
-  int ret = ConvertBoInfo(handle, bo);
-  if (ret)
-    return ret;
-
-  ret = drmPrimeFDToHandle(drm_->fd(), bo->prime_fds[0], &bo->gem_handles[0]);
+int DrmGenericImporter::ImportBuffer(hwc_drm_bo_t *bo) {
+  int ret = drmPrimeFDToHandle(drm_->fd(), bo->prime_fds[0],
+                               &bo->gem_handles[0]);
   if (ret) {
     ALOGE("failed to import prime fd %d ret=%d", bo->prime_fds[0], ret);
     return ret;
@@ -152,25 +94,6 @@ int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
   return 0;
 }
 
-bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
-  hwc_drm_bo_t bo;
-
-  int ret = ConvertBoInfo(handle, &bo);
-  if (ret)
-    return false;
-
-  if (bo.prime_fds[0] == 0)
-    return false;
-
-  return true;
-}
-
-std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
-  std::unique_ptr<Planner> planner(new Planner);
-  planner->AddStage<PlanStageGreedy>();
-  return planner;
-}
-
 int DrmGenericImporter::ImportHandle(uint32_t gem_handle) {
   gem_refcount_[gem_handle]++;
 
@@ -198,4 +121,4 @@ int DrmGenericImporter::CloseHandle(uint32_t gem_handle) {
 
   return ret;
 }
-}
+}  // namespace android
