@@ -782,6 +782,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetClientTarget(buffer_handle_t target,
 HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
   supported(__func__);
 
+  if (mode < HAL_COLOR_MODE_NATIVE || mode > HAL_COLOR_MODE_BT2100_HLG)
+    return HWC2::Error::BadParameter;
+
   if (mode != HAL_COLOR_MODE_NATIVE)
     return HWC2::Error::Unsupported;
 
