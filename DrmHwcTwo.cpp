@@ -28,6 +28,7 @@
 #include <string>
 
 #include "backend/BackendManager.h"
+#include "bufferinfo/BufferInfoGetter.h"
 #include "compositor/DrmDisplayComposition.h"
 
 namespace android {
@@ -757,11 +758,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
                               .right = static_cast<int>(mode->h_display()),
                               .bottom = static_cast<int>(mode->v_display())};
   client_layer_.SetLayerDisplayFrame(display_frame);
-  hwc_frect_t source_crop = {.left = 0.0f,
-                             .top = 0.0f,
-                             .right = mode->h_display() + 0.0f,
-                             .bottom = mode->v_display() + 0.0f};
-  client_layer_.SetLayerSourceCrop(source_crop);
 
   return HWC2::Error::None;
 }
@@ -776,6 +772,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetClientTarget(buffer_handle_t target,
   client_layer_.set_buffer(target);
   client_layer_.set_acquire_fence(uf.get());
   client_layer_.SetLayerDataspace(dataspace);
+
+  /* TODO: Do not update source_crop every call.
+   * It makes sense to do it once after every hotplug event. */
+  hwc_drm_bo bo{};
+  BufferInfoGetter::GetInstance()->ConvertBoInfo(target, &bo);
+
+  hwc_frect_t source_crop = {.left = 0.0f,
+                             .top = 0.0f,
+                             .right = bo.width + 0.0f,
+                             .bottom = bo.height + 0.0f};
+  client_layer_.SetLayerSourceCrop(source_crop);
+
   return HWC2::Error::None;
 }
 
