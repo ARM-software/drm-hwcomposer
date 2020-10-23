@@ -189,9 +189,6 @@ int BufferInfoLibdrm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
       return -EINVAL;
   }
 
-  bo->pixel_stride = (gr_handle->stride * 8) /
-                     DrmFormatToBitsPerPixel(bo->format);
-
   return 0;
 }
 

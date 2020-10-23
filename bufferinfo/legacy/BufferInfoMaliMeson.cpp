@@ -83,7 +83,6 @@ int BufferInfoMaliMeson::ConvertBoInfo(buffer_handle_t handle,
   bo->hal_format = hnd->req_format;
   bo->format = fmt;
   bo->usage = hnd->usage;
-  bo->pixel_stride = hnd->stride;
   bo->prime_fds[0] = hnd->share_fd;
   bo->pitches[0] = hnd->byte_stride;
   bo->offsets[0] = 0;

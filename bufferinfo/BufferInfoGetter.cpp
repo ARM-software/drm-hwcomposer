@@ -96,24 +96,6 @@ uint32_t LegacyBufferInfoGetter::ConvertHalFormatToDrm(uint32_t hal_format) {
   }
 }
 
-uint32_t BufferInfoGetter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
-  switch (drm_format) {
-    case DRM_FORMAT_ARGB8888:
-    case DRM_FORMAT_XBGR8888:
-    case DRM_FORMAT_ABGR8888:
-      return 32;
-    case DRM_FORMAT_BGR888:
-      return 24;
-    case DRM_FORMAT_BGR565:
-      return 16;
-    case DRM_FORMAT_YVU420:
-      return 12;
-    default:
-      ALOGE("Cannot convert hal format %u to bpp (returning 32)", drm_format);
-      return 32;
-  }
-}
-
 bool BufferInfoGetter::IsDrmFormatRgb(uint32_t drm_format) {
   switch (drm_format) {
     case DRM_FORMAT_ARGB8888:

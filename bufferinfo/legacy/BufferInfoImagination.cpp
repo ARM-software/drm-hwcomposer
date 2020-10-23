@@ -45,7 +45,6 @@ int BufferInfoImagination::ConvertBoInfo(buffer_handle_t handle,
   bo->prime_fds[0] = hnd->fd[0];
   bo->pitches[0] = ALIGN(hnd->iWidth, HW_ALIGN) * hnd->uiBpp >> 3;
   bo->hal_format = hnd->iFormat;
-  bo->pixel_stride = hnd->aiStride[0];
 
   switch (hnd->iFormat) {
 #ifdef HAL_PIXEL_FORMAT_BGRX_8888

@@ -99,8 +99,7 @@ class DrmHwcNativeHandle {
     return *this;
   }
 
-  int CopyBufferHandle(buffer_handle_t handle, int width, int height,
-                       int layerCount, int format, int usage, int stride);
+  int CopyBufferHandle(buffer_handle_t handle);
 
   void Clear();
 

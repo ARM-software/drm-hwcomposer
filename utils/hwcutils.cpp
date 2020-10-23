@@ -18,6 +18,7 @@
 #define LOG_TAG "hwc-drm-utils"
 
 #include <log/log.h>
+#include <ui/Gralloc.h>
 #include <ui/GraphicBufferMapper.h>
 
 #include "bufferinfo/BufferInfoGetter.h"
@@ -64,25 +65,15 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   return 0;
 }
 
-int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle, int width,
-                                         int height, int layerCount, int format,
-                                         int usage, int stride) {
+int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle) {
   native_handle_t *handle_copy;
   GraphicBufferMapper &gm(GraphicBufferMapper::get());
   int ret;
 
-#ifdef HWC2_USE_OLD_GB_IMPORT
-  UNUSED(width);
-  UNUSED(height);
-  UNUSED(layerCount);
-  UNUSED(format);
-  UNUSED(usage);
-  UNUSED(stride);
-  ret = gm.importBuffer(handle, const_cast<buffer_handle_t *>(&handle_copy));
-#else
-  ret = gm.importBuffer(handle, width, height, layerCount, format, usage,
-                        stride, const_cast<buffer_handle_t *>(&handle_copy));
-#endif
+  ret = gm.getGrallocMapper().importBuffer(handle,
+                                           const_cast<buffer_handle_t *>(
+                                               &handle_copy));
+
   if (ret) {
     ALOGE("Failed to import buffer handle %d", ret);
     return ret;
@@ -117,9 +108,7 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
 
   const hwc_drm_bo *bo = buffer.operator->();
 
-  ret = handle.CopyBufferHandle(sf_handle, bo->width, bo->height,
-                                1 /*layer_count*/, bo->hal_format, bo->usage,
-                                bo->pixel_stride);
+  ret = handle.CopyBufferHandle(sf_handle);
   if (ret)
     return ret;
 

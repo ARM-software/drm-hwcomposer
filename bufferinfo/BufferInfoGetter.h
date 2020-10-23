@@ -40,7 +40,6 @@ class BufferInfoGetter {
 
   static BufferInfoGetter *GetInstance();
 
-  static uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
   static bool IsDrmFormatRgb(uint32_t drm_format);
 };
 
