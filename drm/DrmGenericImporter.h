@@ -65,6 +65,7 @@ class DrmGenericImporter : public Importer {
  private:
   int CloseHandle(uint32_t gem_handle);
   std::map<uint32_t, int> gem_refcount_;
+  bool has_modifier_support_;
 };
 
 }  // namespace android

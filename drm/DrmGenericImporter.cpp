@@ -21,6 +21,7 @@
 #include <cutils/properties.h>
 #include <gralloc_handle.h>
 #include <hardware/gralloc.h>
+#include <inttypes.h>
 #include <log/log.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -28,6 +29,12 @@
 namespace android {
 
 DrmGenericImporter::DrmGenericImporter(DrmDevice *drm) : drm_(drm) {
+  uint64_t cap_value = 0;
+  if (drmGetCap(drm_->fd(), DRM_CAP_ADDFB2_MODIFIERS, &cap_value)) {
+    ALOGE("drmGetCap failed. Fallback to no modifier support.");
+    cap_value = 0;
+  }
+  has_modifier_support_ = cap_value;
 }
 
 DrmGenericImporter::~DrmGenericImporter() {
@@ -50,6 +57,12 @@ int DrmGenericImporter::ImportBuffer(hwc_drm_bo_t *bo) {
       }
       bo->gem_handles[i] = bo->gem_handles[0];
     }
+  }
+
+  if (!has_modifier_support_ && bo->modifiers[0]) {
+    ALOGE("No ADDFB2 with modifier support. Can't import modifier %" PRIu64,
+          bo->modifiers[0]);
+    return -EINVAL;
   }
 
   if (!bo->with_modifiers)
