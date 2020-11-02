@@ -48,11 +48,17 @@ void DrmHwcBuffer::Clear() {
 int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   hwc_drm_bo tmp_bo{};
 
-  BufferInfoGetter::GetInstance()->ConvertBoInfo(handle, &tmp_bo);
-
-  int ret = importer->ImportBuffer(&tmp_bo);
-  if (ret)
+  int ret = BufferInfoGetter::GetInstance()->ConvertBoInfo(handle, &tmp_bo);
+  if (ret) {
+    ALOGE("Failed to convert buffer info %d", ret);
     return ret;
+  }
+
+  ret = importer->ImportBuffer(&tmp_bo);
+  if (ret) {
+    ALOGE("Failed to import buffer %d", ret);
+    return ret;
+  }
 
   if (importer_ != NULL) {
     importer_->ReleaseBuffer(&bo_);
